@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema di gestione distributori automatici di bevande - Accesso pubblico e area amministrativa">
+    <meta name="theme-color" content="#2563eb">
+    <title>Sistema Distributori Automatici</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/admin.css">
+    <link rel="stylesheet" href="css/client.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    
+    <!-- Google Fonts - Preconnect -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Chart.js -->
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.7.0/chart.min.js"></script>
+
+    <!-- Scripts -->
+    <script src="js/common/utils.js" type="module"></script>
+    <script src="js/common/mqtt.js" type="module"></script>
+    <script src="js/common/authentication.js" type="module"></script>
+    <script src="js/admin/dashboard.js" type="module"></script>
+</head>
+<body>
+    <!-- Skip Link -->
+    <a href="#main-content" class="skip-link">Salta al contenuto principale</a>
+
+    <!-- Header Navigation -->
+    <header role="banner">
+        <nav class="top-nav" role="navigation" aria-label="Navigazione principale">
+            <div class="nav-content container">
+                <div class="nav-brand">
+                    <a href="/" aria-label="Home">
+                        <svg class="brand-logo" width="32" height="32" viewBox="0 0 32 32" role="img" aria-hidden="true">
+                            <title>Progetto Pissir- Edoardo Giovanni Fracchia</title>
+                            <circle cx="16" cy="16" r="16" fill="#2563eb"/>
+                            <path d="M10 16L14 20L22 12" stroke="white" stroke-width="2"/>
+                        </svg>
+                    </a>
+                    <span class="brand-text">Sistema di macchinette - Progetto Pissir - Edoardo Giovanni Fracchia - matricola:20019309</span>
+                </div>
+                
+                <div class="user-menu">
+                    <button class="user-menu-btn" id="userMenuBtn" aria-haspopup="true" aria-expanded="false">
+                        <i class="fas fa-user-circle" aria-hidden="true"></i>
+                        <span class="user-name" id="userName">Ospite</span>
+                        <i class="fas fa-chevron-down" aria-hidden="true"></i>
+                    </button>
+                    <div class="user-dropdown hidden" id="userDropdown" role="menu">
+                        <a href="#" class="dropdown-item" id="loginBtn" role="menuitem">
+                            <i class="fas fa-sign-in-alt" aria-hidden="true"></i>
+                            <span>Accedi</span>
+                        </a>
+                        <a href="#" class="dropdown-item hidden" id="profileBtn" role="menuitem">
+                            <i class="fas fa-user" aria-hidden="true"></i>
+                            <span>Profilo</span>
+                        </a>
+                        <a href="#" class="dropdown-item hidden" id="logoutBtn" role="menuitem">
+                            <i class="fas fa-sign-out-alt" aria-hidden="true"></i>
+                            <span>Esci</span>
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </nav>
+    </header>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Admin Sidebar -->
+        <aside class="side-nav hidden" id="adminNav" role="navigation" aria-label="Menu amministrazione">
+            <nav>
+                <div class="nav-section">
+                    <h2>Dashboard</h2>
+                    <a href="pages/admin/dashboard.html" class="nav-item active" aria-current="page">
+                        <i class="fas fa-home" aria-hidden="true"></i>
+                        <span>Dashboard</span>
+                    </a>
+                    <a href="pages/admin/machines.html" class="nav-item">
+                        <i class="fas fa-coffee" aria-hidden="true"></i>
+                        <span>Distributori</span>
+                    </a>
+                    <a href="pages/admin/istitutes.html" class="nav-item">
+                        <i class="fas fa-building" aria-hidden="true"></i>
+                        <span>Istituti</span>
+                    </a>
+                </div>
+                
+                <div class="nav-section">
+                    <h2>Gestione</h2>
+                    <a href="pages/admin/maintenance.html" class="nav-item">
+                        <i class="fas fa-tools" aria-hidden="true"></i>
+                        <span>Manutenzione</span>
+                    </a>
+                    <a href="pages/admin/reports.html" class="nav-item">
+                        <i class="fas fa-chart-line" aria-hidden="true"></i>
+                        <span>Statistiche</span>
+                    </a>
+                    <a href="pages/admin/pods.html" class="nav-item">
+                        <i class="fas fa-users" aria-hidden="true"></i>
+                        <span>Cialde</span>
+                    </a>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Main Content -->
+        <main id="main-content" class="content-area container" role="main">
+            <!-- Guest Welcome -->
+            <section class="welcome-section" id="guestView" aria-labelledby="welcome-title">
+                <div class="welcome-content">
+                    <h1 id="welcome-title">Benvenuto nel Sistema</h1>
+                    <p class="welcome-subtitle">Seleziona un'opzione per iniziare</p>
+                    
+                    <div class="action-cards" role="group" aria-label="Opzioni principali">
+                        <article class="action-card">
+                            <div class="card-icon" aria-hidden="true">
+                                <i class="fas fa-coffee"></i>
+                            </div>
+                            <h2>Acquista Bevande</h2>
+                            <p>Seleziona un distributore e acquista una bevanda</p>
+                            <a href="pages/client/machineSelection.html" class="btn btn-primary">
+                                Trova distributore
+                                <span class="visually-hidden">più vicino</span>
+                            </a>
+                        </article>
+
+                        <article class="action-card">
+                            <div class="card-icon" aria-hidden="true">
+                                <i class="fas fa-sign-in-alt"></i>
+                            </div>
+                            <h2>Area Amministrativa</h2>
+                            <p>Accedi per gestire distributori e visualizzare statistiche</p>
+                            <button class="btn btn-primary login-trigger" aria-haspopup="dialog">
+                                Accedi come amministratore
+                            </button>
+                        </article>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Admin Dashboard -->
+            <section class="dashboard hidden" id="adminView" aria-labelledby="dashboard-title">
+                <h1 id="dashboard-title" class="visually-hidden">Dashboard Amministrativa</h1>
+                
+                <div class="stats-grid" role="region" aria-label="Statistiche generali">
+                    <!-- Statistiche verranno caricate dinamicamente -->
+                </div>
+                
+                <div class="dashboard-grid" role="region" aria-label="Pannelli di controllo">
+                    <!-- Pannelli verranno caricati dinamicamente -->
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Login Modal -->
+    <div class="modal hidden" id="loginModal" role="dialog" aria-labelledby="login-title" aria-modal="true">
+        <div class="modal-overlay" onclick="closeLoginModal()"></div>
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="login-title">Accesso Amministratore</h2>
+                <button class="btn-close close-modal" aria-label="Chiudi">
+                    <i class="fas fa-times" aria-hidden="true"></i>
+                </button>
+            </div>
+            
+            <form id="loginForm" class="login-form" novalidate>
+                <div class="form-group">
+                    <label for="username">Nome utente</label>
+                    <div class="input-icon">
+                        <i class="fas fa-user" aria-hidden="true"></i>
+                        <input type="text" 
+                               id="username" 
+                               name="username" 
+                               class="form-input" 
+                               required 
+                               autocomplete="username"
+                               aria-required="true">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <div class="input-icon">
+                        <i class="fas fa-lock" aria-hidden="true"></i>
+                        <input type="password" 
+                               id="password" 
+                               name="password" 
+                               class="form-input" 
+                               required
+                               autocomplete="current-password"
+                               aria-required="true">
+                    </div>
+                </div>
+
+                <div class="form-actions">
+                    <button type="submit" class="btn btn-primary btn-block">
+                        Accedi
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay hidden" id="loadingOverlay" role="alert" aria-busy="true">
+        <div class="spinner"></div>
+        <p>Caricamento in corso...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container" role="alert" aria-live="polite"></div>
+
+    
+</body>
+</html>

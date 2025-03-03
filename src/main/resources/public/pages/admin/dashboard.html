@@ -1,0 +1,127 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>Dashboard amministrativa</title>
+
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="../../js/common/utils.js" type="module"></script>
+    <script src="../../js/common/mqtt.js" type="module"></script>
+    <script src="../../js/common/authentication.js" type="module"></script>
+    <script src="../../js/admin/dashboard.js" type="module"></script>
+
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="header-title">
+                <h1>Dashboard</h1>
+            </div>
+            <div class="header-actions">
+                <span class="user-info">
+                    <i class="fas fa-user"></i>
+                    <span id="userName"></span>
+                </span>
+                <button class="btn-logout" onclick="auth.logout()">
+                    <i class="fas fa-sign-out-alt"></i> Esci
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="admin-sidebar" id="adminNav">
+            <a href="dashboard.html" class="nav-item active">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="machines.html" class="nav-item">
+                <i class="fas fa-coffee"></i> Macchine
+            </a>
+            <a href="maintenance.html" class="nav-item">
+                <i class="fas fa-tools"></i> Manutenzione
+            </a>
+            <a href="institutes.html" class="nav-item">
+                <i class="fas fa-building"></i> Istituti
+            </a>
+            <a href="reports.html" class="nav-item">
+                <i class="fas fa-chart-bar"></i> Report
+            </a>
+            <a href="pods.html" class="nav-item">
+                <i class="fas fa-box"></i> Prodotti
+            </a>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-content">
+            <!-- Vista Admin -->
+            <div id="adminView">
+                <!-- Stats Grid -->
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="card-title">Macchine Attive</div>
+                        <div class="card-value" id="activeMachines">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="card-title">In Manutenzione</div>
+                        <div class="card-value" id="maintenanceCount">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="card-title">Ricavi Oggi</div>
+                        <div class="card-value" id="todayRevenue">-</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="card-title">Prodotti Erogati Oggi</div>
+                        <div class="card-value" id="todayDispensed">-</div>
+                    </div>
+                </div>
+
+                <!-- Charts Section -->
+                <div class="dashboard-charts">
+                    <!-- Revenue Chart -->
+                    <div class="chart-container">
+                        <div class="chart-header">
+                            <h2>Andamento Ricavi</h2>
+                            <div class="chart-controls">
+                                <select id="chartPeriod">
+                                    <option value="day">Oggi</option>
+                                    <option value="week">Ultima Settimana</option>
+                                    <option value="month" selected>Ultimo Mese</option>
+                                </select>
+                            </div>
+                        </div>
+                        <canvas id="revenueChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Machine Status -->
+                <div class="dashboard-section">
+                    <h2>Stato Macchine</h2>
+                    <div class="status-list" id="machineStatusList">
+                        <!-- Machine status will be loaded dynamically -->
+                    </div>
+                </div>
+
+                <!-- Active Alerts -->
+                <div class="dashboard-section">
+                    <h2>Allarmi Attivi</h2>
+                    <div class="alerts-list" id="alertsList">
+                        <!-- Alerts will be loaded dynamically -->
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vista Ospite -->
+            <div id="guestView" class="hidden">
+                <h2>Accesso non autorizzato</h2>
+                <p>Effettua il login per accedere alla dashboard.</p>
+            </div>
+        </main>
+    </div>
+</body>
+</html>

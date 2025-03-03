@@ -1,0 +1,943 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Amministratore - Sistema Distributori</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white p-4" style="background-color:grey">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold" >Dashboard Amministratore</h1> 
+            <div>
+                <span id="userInfo" class="mr-3"></span>
+                <button onclick="window.location.href = '/index.html'" class="bg-blue-500 px-3 py-2 rounded hover:bg-blue-600">
+                    Home
+                </button>
+               </div>
+               <div>
+                <span id="userInfo" class="user-info">
+                <span id="userName"></span>
+                    <i class="fas fa-user"></i>
+                </span>
+                <button onclick="logout()" class="bg-red-500 px-3 py-2 rounded hover:bg-red-600">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+    
+    
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-4">
+        <!-- Navigation Tabs -->
+        <div class="mb-4 border-b border-gray-200">
+            <ul class="flex flex-wrap -mb-px" id="myTab">
+                <li class="mr-2">
+                    <button onclick="showTab('istituti')" class="tab-btn inline-block p-4" data-tab="istituti">
+                        <i class="fas fa-building mr-2"></i>Istituti
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('macchine')" class="tab-btn inline-block p-4" data-tab="macchine">
+                        <i class="fas fa-coffee mr-2"></i>Macchine
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('magazzino')" class="tab-btn inline-block p-4" data-tab="magazzino">
+                        <i class="fas fa-warehouse mr-2"></i>Magazzino
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('finanze')" class="tab-btn inline-block p-4" data-tab="finanze">
+                        <i class="fas fa-chart-line mr-2"></i>Finanze
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('utenti')" class="tab-btn inline-block p-4" data-tab="utenti">
+                        <i class="fas fa-users mr-2"></i>Utenti
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('monitoraggio')" class="tab-btn inline-block p-4" data-tab="monitoraggio">
+                        <i class="fas fa-desktop mr-2"></i>Monitoraggio
+                    </button>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Tab Contents -->
+        <div id="tabContents">
+            <!-- Istituti Tab -->
+            <div id="istituti" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Gestione Istituti</h2>
+                    <button onclick="showModal('addIstitutoModal')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        <i class="fas fa-plus mr-2"></i>Nuovo Istituto
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left py-2">Nome</th>
+                                <th class="text-left py-2">Indirizzo</th>
+                                <th class="text-left py-2">Macchine</th>
+                                <th class="text-left py-2">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="istitutiList">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Macchine Tab -->
+            <div id="macchine" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Gestione Macchine</h2>
+                    <button onclick="showModal('addMacchinaModal')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        <i class="fas fa-plus mr-2"></i>Nuova Macchina
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left py-2">ID</th>
+                                <th class="text-left py-2">Istituto</th>
+                                <th class="text-left py-2">Stato</th>
+                                <th class="text-left py-2">Incasso</th>
+                                <th class="text-left py-2">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="macchineList">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Magazzino Tab -->
+            <div id="magazzino" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Scorte Cialde</h3>
+                        <div id="scorteCialde"></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Rifornimenti Necessari</h3>
+                        <div id="rifornimentiList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Finanze Tab -->
+            <div id="finanze" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Ricavi Totali</h3>
+                        <canvas id="ricaviChart"></canvas>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Transazioni Recenti</h3>
+                        <div id="transazioniList"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Utenti Tab -->
+            <div id="utenti" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Gestione Utenti</h2>
+                    <button onclick="showModal('addUserModal')" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                        <i class="fas fa-plus mr-2"></i>Nuovo Utente
+                    </button>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left py-2">Nome</th>
+                                <th class="text-left py-2">Ruolo</th>
+                                <th class="text-left py-2">Ultimo Accesso</th>
+                                <th class="text-left py-2">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="utentiList">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Monitoraggio Tab -->
+            <div id="monitoraggio" class="tab-content hidden">
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Stato Sistema</h3>
+                        <div id="statoSistema"></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Allarmi Attivi</h3>
+                        <div id="allarmiList"></div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-4">Performance</h3>
+                        <canvas id="performanceChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Add Istituto Modal -->
+    <div id="addIstitutoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Aggiungi Nuovo Istituto</h3>
+                <div class="mt-2 px-7 py-3">
+                    <input type="text" id="nomeIstituto" placeholder="Nome Istituto" class="mb-3 px-3 py-2 border rounded w-full">
+                    <input type="text" id="indirizzoIstituto" placeholder="Indirizzo" class="mb-3 px-3 py-2 border rounded w-full">
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="saveIstitutoBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Salva
+                    </button>
+                    <button onclick="hideModal('addIstitutoModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add Macchina Modal -->
+    <div id="addMacchinaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Aggiungi Nuova Macchina</h3>
+                <div class="mt-2 px-7 py-3">
+                    <select id="istitutoSelect" class="mb-3 px-3 py-2 border rounded w-full">
+                        <!-- Populated by JavaScript -->
+                    </select>
+                    <input type="number" id="cassaMassima" placeholder="Capacità Cassa" class="mb-3 px-3 py-2 border rounded w-full">
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="saveMacchinaBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Salva
+                    </button>
+                    <button onclick="hideModal('addMacchinaModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Add User Modal -->
+    <div id="addUserModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Aggiungi Nuovo Utente</h3>
+                <div class="mt-2 px-7 py-3">
+                    <input type="text" id="nomeUtente" placeholder="Nome" class="mb-3 px-3 py-2 border rounded w-full">
+                    <input type="text" id="username" placeholder="Username" class="mb-3 px-3 py-2 border rounded w-full">
+                    <input type="password" id="password" placeholder="Password" class="mb-3 px-3 py-2 border rounded w-full">
+                    <select id="ruoloSelect" class="mb-3 px-3 py-2 border rounded w-full">
+                        <option value="Amministratore">Amministratore</option>
+                        <option value="Tecnico">Tecnico</option>
+                        <option value="Operatore">Operatore</option>
+                    </select>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="saveUserBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Salva
+                    </button>
+                    <button onclick="hideModal('addUserModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+    const userInfo = document.getElementById('userInfo');
+    const userNameSpan = document.getElementById('userName');
+    userNameSpan.textContent = localStorage.getItem('user_name');
+        // API Configuration
+        const API_BASE_URL = 'https://localhost:8443/api';
+        let currentUser = null;
+        let currentTab = 'istituti';
+
+        // Check Authentication
+        function checkAuth() {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                window.location.href = '/index.html';
+                return;
+            }
+            
+            // Set authorization header for all requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            
+        }
+
+        // Logout Function
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            window.location.href = '/index.html';
+        }
+
+        // Tab Management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'border-blue-600', 'border-b-2');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.remove('hidden');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('text-blue-600', 'border-blue-600', 'border-b-2');
+            
+            currentTab = tabName;
+            loadTabData(tabName);
+        }
+
+        // Modal Management
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // Load Tab Data
+        function loadTabData(tabName) {
+            switch(tabName) {
+                case 'istituti':
+                    loadIstituti();
+                    break;
+                case 'macchine':
+                    loadMacchine();
+                    break;
+                case 'magazzino':
+                    loadMagazzino();
+                    break;
+                case 'finanze':
+                    loadFinanze();
+                    break;
+                case 'utenti':
+                    loadUtenti();
+                    break;
+                case 'monitoraggio':
+                    loadMonitoraggio();
+                    break;
+            }
+        }
+
+        // Istituti Management
+        function loadIstituti() {
+            axios.get(`${API_BASE_URL}/istituti`)
+                .then(response => {
+                    const istituti = response.data;
+                    const tbody = document.getElementById('istitutiList');
+                    tbody.innerHTML = '';
+                    
+                    istituti.forEach(istituto => {
+                    	const macchine = istituto.macchine ? istituto.macchine.length : 0;
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="py-2">${istituto.nome}</td>
+                            <td class="py-2">${istituto.indirizzo}</td>
+                            <td class="py-2">${macchine}</td>
+                            <td class="py-2">
+                                <button onclick="editIstituto(${istituto.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteIstituto(${istituto.id})" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading istituti:', error);
+                    alert('Errore nel caricamento degli istituti');
+                });
+        }
+
+        // Save Istituto
+        document.getElementById('saveIstitutoBtn').addEventListener('click', () => {
+            const nome = document.getElementById('nomeIstituto').value;
+            const indirizzo = document.getElementById('indirizzoIstituto').value;
+            if (!nome || !indirizzo) {
+                alert('Compilare tutti i campi');
+                return;
+            }
+            
+            axios.post(`${API_BASE_URL}/admin/istituti`, { nome, indirizzo })
+                .then(() => {
+                    hideModal('addIstitutoModal');
+                    loadIstituti();
+                })
+                .catch(error => {
+                    console.error('Error saving istituto:', error);
+                    alert('Errore nel salvataggio dell\'istituto');
+                });
+        });
+
+        // Machine Management
+        function loadMacchine() {
+            axios.get(`${API_BASE_URL}/macchine`)
+                .then(response => {
+                    const macchine = response.data;
+                    const tbody = document.getElementById('macchineList');
+                    tbody.innerHTML = '';
+                    
+                    macchine.forEach(macchina => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td class="py-2">${macchina.id}</td>
+                            <td class="py-2">${macchina.nomeIstituto}</td>
+                            <td class="py-2">
+                                <span class="px-2 py-1 rounded ${getStatoClass(macchina.statoId)}">
+                                    ${macchina.statoDescrizione}
+                                </span>
+                            </td>
+                            <td class="py-2">€${macchina.cassaAttuale.toFixed(2)}</td>
+                            <td class="py-2">
+                                <button onclick="configuraMacchina(${macchina.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                                    <i class="fas fa-cog"></i>
+                                </button>
+                                <button onclick="deleteMacchina(${macchina.id})" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading macchine:', error);
+                    alert('Errore nel caricamento delle macchine');
+                });
+        }
+        
+        // Add macchina
+        function addMacchina() {
+    		const istitutoId = document.getElementById('istitutoSelect').value;
+    		const cassaMassima = document.getElementById('cassaMassima').value;
+
+		    if (!istitutoId || !cassaMassima) {
+		        alert('Compilare tutti i campi');
+		        return;
+		    }
+		
+		    axios.post(`${API_BASE_URL}/admin/macchine`, { istitutoId, cassaMassima })
+		        .then(() => {
+		            hideModal('addMacchinaModal');
+		            loadMacchine();
+		        })
+		        .catch(error => {
+		            console.error('Error adding machine:', error);
+		            alert('Errore nell\'aggiunta della macchina');
+		        });
+		}
+        
+        // Modifica stato macchina
+        function updateStatoMacchina(id, statoId) {
+		    axios.put(`${API_BASE_URL}/admin/macchine/${id}/stato`, { statoId })
+		        .then(() => {
+		            loadMacchine();
+		        })
+		        .catch(error => {
+		            console.error('Error updating machine status:', error);
+		            alert('Errore nell\'aggiornamento dello stato della macchina');
+		        });
+		}
+        
+        // Delete macchina
+        function deleteMacchina(id) {
+		    if (confirm('Sei sicuro di voler eliminare questa macchina?')) {
+		        axios.delete(`${API_BASE_URL}/admin/macchine/${id}`)
+		            .then(() => {
+		                loadMacchine();
+		            })
+		            .catch(error => {
+		                console.error('Error deleting machine:', error);
+		                alert('Errore nell\'eliminazione della macchina');
+		            });
+		    }
+		}
+        // Modifica Istituto
+        function editIstituto(id) {
+		    const nome = prompt('Nuovo nome istituto:');
+		    const indirizzo = prompt('Nuovo indirizzo:');
+		
+		    if (nome && indirizzo) {
+		        axios.put(`${API_BASE_URL}/admin/istituti/${id}`, { nome, indirizzo })
+		            .then(() => {
+		                loadIstituti();
+		            })
+		            .catch(error => {
+		                console.error('Error updating istituto:', error);
+		                alert('Errore nell\'aggiornamento dell\'istituto');
+		            });
+		    }
+		}
+
+        function deleteIstituto(id) {
+            if (confirm('Sei sicuro di voler eliminare questo istituto?')) {
+                axios.delete(`${API_BASE_URL}/admin/istituti/${id}`)
+                    .then(() => {
+                        loadIstituti();
+                    })
+                    .catch(error => {
+                        console.error('Error deleting istituto:', error);
+                        alert('Errore nell\'eliminazione dell\'istituto');
+                    });
+            }
+        }
+
+        // Gestione Macchine
+        function configuraMacchina(id) {
+            const statoId = prompt('Nuovo stato (1=Attiva, 2=Manutenzione, 3=Fuori servizio):');
+            if (statoId) {
+                axios.put(`${API_BASE_URL}/admin/macchine/${id}/stato`, { statoId: parseInt(statoId) })
+                    .then(() => {
+                    	loadMacchine();
+                    	alert('Stato aggiornato correttamente!');
+                    })
+                    .catch(error => {
+                        console.error('Error updating machine status:', error);
+                        alert('Errore nell\'aggiornamento dello stato della macchina');
+                    });
+            }
+        }
+
+        // Add Bevanda
+        function addBevanda() {
+		    const nome = prompt('Nome bevanda:');
+		    const prezzo = prompt('Prezzo:');
+		
+		    if (nome && prezzo) {
+		        axios.post(`${API_BASE_URL}/admin/bevande`, { nome, prezzo })
+		            .then(() => {
+		                loadBevande();
+		            })
+		            .catch(error => {
+		                console.error('Error adding beverage:', error);
+		                alert('Errore nell\'aggiunta della bevanda');
+		            });
+		    }
+		}
+        
+        // Aggiorna bevanda
+        function updateBevanda(id) {
+            const nome = prompt('Nuovo nome bevanda:');
+            const prezzo = prompt('Nuovo prezzo:');
+
+            if (nome && prezzo) {
+                axios.put(`${API_BASE_URL}/admin/bevande/${id}`, { nome, prezzo })
+                    .then(() => {
+                        loadBevande();
+                    })
+                    .catch(error => {
+                        console.error('Error updating beverage:', error);
+                        alert('Errore nell\'aggiornamento della bevanda');
+                    });
+            }
+        }
+        // Elimina bevanda
+        function deleteBevanda(id) {
+            if (confirm('Sei sicuro di voler eliminare questa bevanda?')) {
+                axios.delete(`${API_BASE_URL}/admin/bevande/${id}`)
+                    .then(() => {
+                        loadBevande();
+                    })
+                    .catch(error => {
+                        console.error('Error deleting beverage:', error);
+                        alert('Errore nell\'eliminazione della bevanda');
+                    });
+            }
+        }
+
+        // Gestione Manutenzioni
+        function loadManutenzioni() {
+            axios.get(`${API_BASE_URL}/manutenzioni`)
+                .then(response => {
+                    const manutenzioni = response.data;
+                    // Implementare la visualizzazione delle manutenzioni
+                })
+                .catch(error => {
+                    console.error('Error loading maintenance data:', error);
+                    alert('Errore nel caricamento delle manutenzioni');
+                });
+        }
+
+        function iniziaManutenzione(macchinaId) {
+            axios.post(`${API_BASE_URL}/manutenzione`, { macchinaId })
+                .then(() => {
+                    loadManutenzioni();
+                })
+                .catch(error => {
+                    console.error('Error starting maintenance:', error);
+                    alert('Errore nell\'avvio della manutenzione');
+                });
+        }
+
+        function completaManutenzione(id) {
+            axios.put(`${API_BASE_URL}/manutenzione/${id}/completa`)
+                .then(() => {
+                    loadManutenzioni();
+                })
+                .catch(error => {
+                    console.error('Error completing maintenance:', error);
+                    alert('Errore nel completamento della manutenzione');
+                });
+        }
+
+        function setFuoriServizio(macchinaId) {
+            axios.put(`${API_BASE_URL}/manutenzione/${macchinaId}/fuori-servizio`)
+                .then(() => {
+                    loadMacchine();
+                })
+                .catch(error => {
+                    console.error('Error setting machine out of service:', error);
+                    alert('Errore nell\'impostazione fuori servizio');
+                });
+        }
+        
+        function loadMagazzino() {
+            // Carica le scorte di cialde
+            axios.get(`${API_BASE_URL}/bevande`)
+                .then(response => {
+                    const bevande = response.data;
+                    const scorteCialde = document.getElementById('scorteCialde');
+                    scorteCialde.innerHTML = '';
+
+                    bevande.forEach(bevanda => {
+                        const div = document.createElement('div');
+                        div.className = 'mb-2';
+                        div.innerHTML = `
+                            <span class="font-medium">${bevanda.nome}</span>: 
+                            <span class="text-gray-600">${bevanda.cialdeDisponibili} cialde disponibili</span>
+                        `;
+                        scorteCialde.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading bevande:', error);
+                    alert('Errore nel caricamento delle scorte di cialde');
+                });
+
+            // Carica i rifornimenti necessari
+            axios.get(`${API_BASE_URL}/bevande/rifornimenti`)
+                .then(response => {
+                    const rifornimenti = response.data;
+                    const rifornimentiList = document.getElementById('rifornimentiList');
+                    rifornimentiList.innerHTML = '';
+
+                    rifornimenti.forEach(rifornimento => {
+                        const div = document.createElement('div');
+                        div.className = 'mb-2';
+                        div.innerHTML = `
+                            <span class="font-medium">${rifornimento.nome}</span>: 
+                            <span class="text-gray-600">${rifornimento.quantitaNecessaria} cialde necessarie</span>
+                        `;
+                        rifornimentiList.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading rifornimenti:', error);
+                    alert('Errore nel caricamento dei rifornimenti necessari');
+                });
+        }
+        
+        function loadFinanze() {
+            // Carica i ricavi totali
+            axios.get(`${API_BASE_URL}/ricavi`)
+                .then(response => {
+                    const ricavi = response.data;
+                    const ricaviCtx = document.getElementById('ricaviChart').getContext('2d');
+                    new Chart(ricaviCtx, {
+                        type: 'line',
+                        data: {
+                            labels: ricavi.labels, // Supponiamo che i dati includano etichette per i mesi
+                            datasets: [{
+                                label: 'Ricavi Mensili',
+                                data: ricavi.data, // Supponiamo che i dati includano i valori dei ricavi
+                                borderColor: 'rgb(59, 130, 246)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            scales: {
+                                y: {
+                                    beginAtZero: true
+                                }
+                            }
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading ricavi:', error);
+                    alert('Errore nel caricamento dei ricavi');
+                });
+
+            // Carica le transazioni recenti
+            axios.get(`${API_BASE_URL}/transazioni`)
+            .then(response => {
+                const transazioni = response.data;
+                const transazioniList = document.getElementById('transazioniList');
+                transazioniList.innerHTML = '';
+
+                transazioni.forEach(transazione => {
+                    const div = document.createElement('div');
+                    div.className = 'mb-2';
+                    div.innerHTML = `
+                        <span class="font-medium">${transazione.bevandaNome}</span>: 
+                        <span class="text-gray-600">€${transazione.importo.toFixed(2)} - ${transazione.dataOra}</span>
+                    `;
+                    transazioniList.appendChild(div);
+                });
+            })
+            .catch(error => {
+                console.error('Error loading transazioni:', error);
+                alert('Errore nel caricamento delle transazioni');
+            });
+        }
+        
+        function loadUtenti() {
+            axios.get(`${API_BASE_URL}/admin/utenti`)
+                .then(response => {
+                    const utenti = response.data;
+                    const tbody = document.getElementById('utentiList');
+                    tbody.innerHTML = '';
+
+                    utenti.forEach(utente => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                        	
+                            <td class="py-2">${utente.nome}</td>
+                            <td class="py-2">${utente.ruolo}</td>
+                            <td class="py-2">${utente.ultimoAccesso}</td>
+                            <td class="py-2">
+                                <button onclick="editUtente(${utente.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                                    <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteUtente(${utente.id})" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading utenti:', error);
+                    alert('Errore nel caricamento degli utenti');
+                });
+        }
+        
+        function addUser() {
+            const nome = document.getElementById('nomeUtente').value;
+            const username = document.getElementById('username').value;
+            const password = document.getElementById('password').value;
+            const ruolo = document.getElementById('ruoloSelect').value;
+
+            if (!nome || !username || !password || !ruolo) {
+                alert('Compilare tutti i campi');
+                return;
+            }
+
+            axios.post(`${API_BASE_URL}/admin/utenti`, { nome, username, password, ruolo })
+                .then(() => {
+                    hideModal('addUserModal');
+                    loadUtenti();
+                })
+                .catch(error => {
+                    console.error('Error adding user:', error);
+                    alert('Errore nell\'aggiunta dell\'utente');
+                });
+        }
+        
+        function editUtente(id) {
+            const nome = prompt('Nuovo nome utente:');
+            const ruolo = prompt('Nuovo ruolo (Amministratore, Tecnico, Operatore):');
+
+            if (nome && ruolo) {
+                axios.put(`${API_BASE_URL}/admin/utenti/${id}`, { nome, ruolo })
+                    .then(() => {
+                        loadUtenti();
+                    })
+                    .catch(error => {
+                        console.error('Error updating user:', error);
+                        alert('Errore nell\'aggiornamento dell\'utente');
+                    });
+            }
+        }
+        
+        function deleteUtente(id) {
+            if (confirm('Sei sicuro di voler eliminare questo utente?')) {
+                axios.delete(`${API_BASE_URL}/admin/utenti/${id}`)
+                    .then(() => {
+                        loadUtenti();
+                    })
+                    .catch(error => {
+                        console.error('Error deleting user:', error);
+                        alert('Errore nell\'eliminazione dell\'utente');
+                    });
+            }
+        }
+        
+        function loadMonitoraggio() {
+            // Carica lo stato del sistema
+            axios.get(`${API_BASE_URL}/monitoraggio/stato`)
+                .then(response => {
+                    const statoSistema = response.data;
+                    const statoSistemaDiv = document.getElementById('statoSistema');
+                    statoSistemaDiv.innerHTML = `
+                        <div class="text-lg">${statoSistema.stato}</div>
+                        <div class="text-gray-600">${statoSistema.descrizione}</div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error loading stato sistema:', error);
+                    alert('Errore nel caricamento dello stato del sistema');
+                });
+
+            // Carica gli allarmi attivi
+            axios.get(`${API_BASE_URL}/monitoraggio/allarmi`)
+                .then(response => {
+                    const allarmi = response.data;
+                    const allarmiList = document.getElementById('allarmiList');
+                    allarmiList.innerHTML = '';
+
+                    allarmi.forEach(allarme => {
+                        const div = document.createElement('div');
+                        div.className = 'mb-2';
+                        div.innerHTML = `
+                            <span class="font-medium">${allarme.tipo}</span>: 
+                            <span class="text-gray-600">${allarme.descrizione}</span>
+                        `;
+                        allarmiList.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading allarmi:', error);
+                    alert('Errore nel caricamento degli allarmi');
+                });
+
+            // Carica le performance delle macchine
+            axios.get(`${API_BASE_URL}/monitoraggio/performance`)
+                .then(response => {
+                    const performance = response.data;
+                    const perfCtx = document.getElementById('performanceChart').getContext('2d');
+                    new Chart(perfCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
+                            datasets: [{
+                                data: [performance.attive, performance.inManutenzione, performance.fuoriServizio],
+                                backgroundColor: [
+                                    'rgb(34, 197, 94)',
+                                    'rgb(234, 179, 8)',
+                                    'rgb(239, 68, 68)'
+                                ]
+                            }]
+                        },
+                        options: {
+                            responsive: true
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading performance:', error);
+                    alert('Errore nel caricamento delle performance');
+                });
+        }
+
+        function getStatoClass(statoId) {
+            switch(statoId) {
+                case 1: return 'bg-green-100 text-green-800'; // Attiva
+                case 2: return 'bg-yellow-100 text-yellow-800'; // In manutenzione
+                case 3: return 'bg-red-100 text-red-800'; // Fuori servizio
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        // Initialize Charts
+        function initCharts() {
+            // Ricavi Chart
+            const ricaviCtx = document.getElementById('ricaviChart').getContext('2d');
+            new Chart(ricaviCtx, {
+                type: 'line',
+                data: {
+                    labels: ['Gen', 'Feb', 'Mar', 'Apr', 'Mag', 'Giu'],
+                    datasets: [{
+                        label: 'Ricavi Mensili',
+                        data: [12000, 19000, 15000, 17000, 22000, 20000],
+                        borderColor: 'rgb(59, 130, 246)',
+                        tension: 0.1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    scales: {
+                        y: {
+                            beginAtZero: true
+                        }
+                    }
+                }
+            });
+
+            // Performance Chart
+            const perfCtx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(perfCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
+                    datasets: [{
+                        data: [75, 15, 10],
+                        backgroundColor: [
+                            'rgb(34, 197, 94)',
+                            'rgb(234, 179, 8)',
+                            'rgb(239, 68, 68)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true
+                }
+            });
+        }
+
+        // Initialize Application
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            showTab('istituti');
+            initCharts();
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema di gestione distributori automatici - Dashboard amministrativa e interfaccia client">
+    <title>Sistema Gestione Distributori</title>
+    
+    <!-- CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/client.css">
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/chart.js/3.7.0/chart.min.js"></script>
+    <script src="js/common/utils.js" type="module"></script>
+    <script src="js/common/mqtt.js" type="module"></script>
+    <script src="js/common/authentication.js" type="module"></script>
+    
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Poppins:wght@500;600;700&display=swap" rel="stylesheet">
+    
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+    <!-- Navigation Bar -->
+    <nav class="top-nav">
+        <div class="nav-content container">
+            <div class="nav-brand">
+                <span class="brand-text">Progetto d'esame - Edoardo Giovanni Fracchia</span>
+            </div>
+            
+            <div class="user-menu">
+                <span id="userInfo" class="user-info hidden">
+                <span id="userName"></span>
+                    <i class="fas fa-user"></i>
+                    
+                </span>
+                
+                <a class="btn btn-secondary"" id="logoutBtn">
+                    Logout
+                </a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="main-container">
+        <!-- Main Content -->
+        <main class="content-area container">
+            <!-- Welcome Section -->
+            <section class="welcome-section">
+                <div class="welcome-content">
+                    <h1>Benvenuto nel sistema di Gestione Macchine</h1>
+                    <p class="welcome-subtitle">Seleziona un'opzione per iniziare</p>
+                    <div class="action-cards" id="actionCards">
+                        <!-- Card Erogazione (sempre visibile) -->
+                        <div class="action-card">
+                            <div class="card-icon">
+                                <i class="fas fa-coffee"></i>
+                            </div>
+                            <h3>Acquista Bevande</h3>
+                            <p>Seleziona un distributore e acquista le tue bevande preferite</p>
+                            <a href="/pages/client/machineSelection.html" class="btn btn-primary">
+                                Inizia
+                            </a>
+                        </div>
+
+                        <!-- Card Dashboard Impiegato (visibile solo per employee) -->
+                        <div class="action-card hidden" id="employeeDashboardCard">
+                            <div class="card-icon">
+                                <i class="fas fa-tasks"></i>
+                            </div>
+                            <h3>Dashboard Impiegato</h3>
+                            <p>Gestisci le macchine e monitora lo stato del sistema</p>
+                            <a href="/pages/admin/dash_impiegati.html" class="btn btn-primary">
+                                Accedi
+                            </a>
+                        </div>
+
+                        <!-- Card Dashboard Admin (visibile solo per admin) -->
+                        <div class="action-card hidden" id="adminDashboardCard">
+                            <div class="card-icon">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <h3>Dashboard Amministratore</h3>
+                            <p>Gestione completa del sistema e configurazione</p>
+                            <a href="/pages/admin/dash_admin.html" class="btn btn-primary">
+                                Accedi
+                            </a>
+                        </div>
+
+                        <!-- Card Login (visibile solo per guest) -->
+                        <div class="action-card" id="loginCard">
+                            <div class="card-icon">
+                                <i class="fas fa-sign-in-alt"></i>
+                            </div>
+                            <h3>Area Amministrativa</h3>
+                            <p>Accedi per gestire distributori e visualizzare statistiche</p>
+                            <a href="/pages/client/login.html" class="btn btn-primary">
+                                Accesso admin
+                            </a>
+                        </div>
+
+                        <!-- Card Registrazione (visibile solo per guest) -->
+                        <div class="action-card" id="registerCard">
+                            <div class="card-icon">
+                                <i class="fas fa-user-plus"></i>
+                            </div>
+                            <h3>Registrazione</h3>
+                            <p>Registrati come nuovo amministratore del sistema</p>
+                            <a href="/pages/client/register.html" class="btn btn-primary">
+                                Registrazione
+                            </a>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Overlays -->
+    <div class="loading-overlay hidden" id="loadingOverlay">
+        <div class="spinner"></div>
+        <p>Caricamento in corso...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container"></div>
+
+    <!-- Script per gestire l'accesso -->
+    <script type="module">
+        import auth from './js/common/authentication.js';
+
+        function updateUI() {
+            const userRole = auth.getUserRole();
+
+            const isAuthenticated = auth.isAuthenticated();
+            // Elementi UI
+            const loginCard = document.getElementById('loginCard');
+            const registerCard = document.getElementById('registerCard');
+            const employeeDashboardCard = document.getElementById('employeeDashboardCard');
+            const adminDashboardCard = document.getElementById('adminDashboardCard');
+            const logoutBtn = document.getElementById('logoutBtn');
+            const userInfo = document.getElementById('userInfo');
+            const userNameSpan = document.getElementById('userName');
+
+            // Nascondi/mostra elementi in base all'autenticazione
+            if (isAuthenticated) {
+                // Nascondi login e registrazione
+                loginCard.classList.add('hidden');
+                registerCard.classList.add('hidden');
+                
+                // Mostra logout e info utente
+                logoutBtn.classList.remove('hidden');
+                userInfo.classList.remove('hidden');
+                userNameSpan.textContent = localStorage.getItem('user_name');
+
+                // Mostra dashboard in base al ruolo
+                if (auth.isEmployee()) {
+                    employeeDashboardCard.classList.remove('hidden');
+                    adminDashboardCard.classList.add('hidden');
+                } else if (auth.isAdmin()) {
+                    adminDashboardCard.classList.remove('hidden');
+                    employeeDashboardCard.classList.add('hidden');
+                }
+            } else {
+                // Mostra login e registrazione
+                loginCard.classList.remove('hidden');
+                registerCard.classList.remove('hidden');
+                
+                // Nascondi elementi autenticati
+                logoutBtn.classList.add('hidden');
+                userInfo.classList.add('hidden');
+                employeeDashboardCard.classList.add('hidden');
+                adminDashboardCard.classList.add('hidden');
+            }
+        }
+
+        // Gestione logout
+        document.getElementById('logoutBtn').addEventListener('click', (e) => {
+            e.preventDefault();
+            auth.logout();
+        });
+
+        // Verifica token all'avvio
+        async function checkTokenAndUpdate() {
+            if (auth.isAuthenticated()) {
+                try {
+                    await auth.refreshToken();
+                } catch (error) {
+                    console.error('Errore refresh token:', error);
+                }
+            }
+            updateUI();
+        }
+
+        // Aggiorna UI al caricamento
+        document.addEventListener('DOMContentLoaded', checkTokenAndUpdate);
+    </script>
+</body>
+</html>

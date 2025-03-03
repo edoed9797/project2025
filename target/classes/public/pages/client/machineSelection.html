@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Sistema di selezione distributori automatici">
+    <title>Selezione Distributore</title>
+
+    <!-- CSS -->
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/client.css">
+
+    <!-- Font Awesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <!-- Scripts -->
+    <script src="../../js/common/mqtt.js" type="module"></script>
+    <script src="../../js/common/utils.js" type="module"></script>
+    <script src="../../js/client/machineSelection.js" type="module"></script>
+
+</head>
+
+<body style="padding-top: 70px;">
+
+    <!-- Loading Overlay -->
+    <div id="loadingOverlay" class="loading-overlay hidden" aria-hidden="true">
+        <div class="spinner" role="status"></div>
+        <p>Caricamento in corso...</p>
+    </div>
+
+    <!-- Toast Container -->
+    <div id="toastContainer" class="toast-container" aria-live="polite"></div>
+
+    <!-- Navbar fissa in alto -->
+    <div class="top-nav" style="position: fixed; top: 0; left: 0; right: 0; z-index: 1000; background-color: white;">
+        <div class="nav-content">
+            <div class="nav-brand">
+                <span class="brand-text">Distributori disponibili</span>
+            </div>
+            <div class="nav-brand">
+                <a class="btn btn-primary" href="/index.html">Home</a>
+            </div>
+            <div class="nav-actions">
+                <span id="userInfo" class="mr-3"></span>
+                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div id="main-content" class="container mt-5" role="main">
+
+        <!-- Machines List -->
+        <hr><br>
+        <section class="machines-section" aria-labelledby="machines-title">
+            <h2 id="machines-title" style="margin: 0; text-align: center;">Elenco Distributori</h2><br>
+
+            <div id="machinesList" class="machines-grid" role="list" aria-label="Elenco dei distributori disponibili">
+                <!-- I distributori verranno caricati dinamicamente -->
+            </div>
+
+            <!-- No Results Message -->
+            <div id="noResults" class="no-results hidden" role="alert">
+                <i class="fas fa-search" aria-hidden="true"></i>
+                <p>Nessun distributore trovato con i criteri selezionati</p>
+                <button class="btn-reset" onclick="window.location.reload()">
+                    Reimposta ricerca
+                </button>
+            </div>
+        </section>
+        <br><br><br>
+        <hr><br>
+        <!-- Institutes List -->
+        <section class="institutes-section" aria-labelledby="institutes-title">
+            <h2 id="institutes-title" style="margin: 0; text-align: center;">Elenco Istituti</h2><br>
+
+            <div id="institutesList" class="institutes-grid" role="list" aria-label="Elenco degli istituti disponibili">
+                <!-- Gli istituti verranno caricati dinamicamente -->
+            </div>
+        </section>
+    </div>
+
+    <!-- Footer -->
+    <footer class="client-footer" role="contentinfo">
+        <br>
+        <hr>
+        <p style="text-align:center!important">© 2025 Edoardo Giovanni Fracchia - Sistema Distributori Automatici</p>
+    </footer>
+</body>
+
+</html>

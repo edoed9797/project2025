@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registrazione - Sistema Distributori</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+</head>
+
+<body class="bg-gray-100">
+    <div class="min-h-screen flex items-center justify-center">
+        <div class="bg-white p-8 rounded-lg shadow-lg w-full max-w-md">
+            <h2 class="text-2xl font-bold mb-6 text-center text-gray-800">Registrazione Utente</h2>
+
+            <form id="registrationForm" class="space-y-4">
+                <div>
+                    <label for="nome" class="block text-sm font-medium text-gray-700">Nome Completo</label>
+                    <input type="text" id="nome" name="nome" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="username" class="block text-sm font-medium text-gray-700">Username</label>
+                    <input type="text" id="username" name="username" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                </div>
+
+                <div>
+                    <label for="password" class="block text-sm font-medium text-gray-700">Password</label>
+                    <input type="password" id="password" name="password" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                    <p class="mt-1 text-xs text-gray-500">La password deve contenere almeno 8 caratteri, una maiuscola,
+                        una minuscola, un numero e un carattere speciale</p>
+                </div>
+
+                <div>
+                    <label for="ruolo" class="block text-sm font-medium text-gray-700">Ruolo</label>
+                    <select id="ruolo" name="ruolo" required
+                        class="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-blue-500 focus:ring-blue-500">
+                        <option value="">Seleziona un ruolo</option>
+                        <option value="amministratore">Amministratore</option>
+                        <option value="tecnico">Tecnico</option>
+                        <option value="operatore">Operatore</option>
+                    </select>
+                </div>
+
+                <div id="alertBox" class="hidden rounded-md p-4 mt-4"></div>
+
+                <button type="submit"
+                    class="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Registra
+                </button>
+            </form>
+
+            <div class="mt-4 text-center">
+                <a href="login.html" class="text-sm text-blue-600 hover:text-blue-500">
+                    Hai già un account? Accedi
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('registrationForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+
+            const alertBox = document.getElementById('alertBox');
+
+            try {
+                // Raccolta dati dal form
+                const formData = {
+                    nome: document.getElementById('nome').value,
+                    username: document.getElementById('username').value,
+                    password: document.getElementById('password').value,
+                    ruolo: document.getElementById('ruolo').value
+                };
+
+                // Validazione password
+                const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+                if (!passwordRegex.test(formData.password)) {
+                    throw new Error('La password non rispetta i requisiti di sicurezza');
+                }
+
+                // Invio dati all'API
+                const response = await fetch('/api/auth/register', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(formData)
+                });
+
+                const data = await response.json();
+
+                if (!response.ok) {
+                    throw new Error(data.errore || 'Errore durante la registrazione');
+                }
+
+                // Registrazione riuscita
+                alertBox.className = 'rounded-md p-4 mt-4 bg-green-100 text-green-700';
+                alertBox.textContent = 'Registrazione completata con successo! Reindirizzamento...';
+                alertBox.style.display = 'block';
+
+                // Reindirizza alla pagina di login dopo 2 secondi
+                setTimeout(() => {
+                    window.location.href = 'login.html';
+                }, 2000);
+
+            } catch (error) {
+                // Gestione errori
+                alertBox.className = 'rounded-md p-4 mt-4 bg-red-100 text-red-700';
+                alertBox.textContent = error.message;
+                alertBox.style.display = 'block';
+            }
+        });
+
+        // Funzione per validare i campi in tempo reale
+        function validateField(field) {
+            const value = field.value.trim();
+
+            switch (field.id) {
+                case 'nome':
+                    return value.length >= 3;
+                case 'username':
+                    return value.length >= 4;
+                case 'password':
+                    const passwordRegex = /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[@$!%*?&])[A-Za-z\d@$!%*?&]{8,}$/;
+                    return passwordRegex.test(value);
+                case 'ruolo':
+                    return value !== '';
+                default:
+                    return true;
+            }
+        }
+
+        // Aggiungi validazione in tempo reale per tutti i campi
+        document.querySelectorAll('input, select').forEach(field => {
+            field.addEventListener('input', () => {
+                if (validateField(field)) {
+                    field.classList.remove('border-red-500');
+                    field.classList.add('border-gray-300');
+                } else {
+                    field.classList.remove('border-gray-300');
+                    field.classList.add('border-red-500');
+                }
+            });
+        });
+    </script>
+</body>
+
+</html>

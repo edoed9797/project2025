@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="it">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Impiegati - Sistema Distributori</title>
+    <link rel="stylesheet" href="../../css/style.css">
+</head>
+
+<body>
+    <div class="top-nav">
+        <div class="nav-content">
+            <div class="nav-brand">
+                <span class="brand-text">Dashboard Impiegati</span>
+            </div>
+            <div class="nav-brand">
+                <a class="btn btn-primary" href="/index.html">Home</a>
+            </div>
+            <div class="nav-actions">
+                <span id="userInfo" class="mr-3"></span>
+                <button onclick="logout()" class="btn btn-secondary">Logout</button>
+            </div>
+        </div>
+    </div>
+    <div class="main-container">
+        <main class="content-area container">
+            <!-- Sezione Istituti -->
+            <div class="card mb-4" id="institutesSection" style="width:1500px; margin-top:15px">
+                <div class="card-header">
+                    <h2>Istituti Gestiti</h2>
+                </div>
+                <div class="card-body">
+                    <div class="institutes-grid" id="institutesGrid"></div>
+                </div>
+            </div>
+
+            <!-- Sezione Macchine -->
+            <div class="card mb-4" id="machinesSection" style="display: none;width:1500px; margin-top:15px">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3>Macchine - <span id="selectedInstituteName"></span></h3>
+                        <button class="btn btn-secondary" onclick="backToInstitutes()">← Torna agli Istituti</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div class="machines-grid" id="machinesList"></div>
+                </div>
+            </div>
+
+            <!-- Sezione Manutenzione -->
+            <div class="card mb-4" id="maintenanceSection" style="display: none;">
+                <div class="card-header">
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h3>Dettagli Macchina #<span id="selectedMachineId"></span></h3>
+                        <button class="btn btn-secondary" onclick="backToMachines()">← Torna alle Macchine</button>
+                    </div>
+                </div>
+                <div class="card-body">
+                    <div id="maintenanceDetails"></div>
+                    <div class="form-group mt-3">
+                        <button class="btn btn-primary" onclick="sendTechnician()">Invia Tecnico</button>
+                    </div>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <div id="toastContainer" class="toast-container"></div>
+
+    <script type="module">
+        import auth from '../../js/common/authentication.js';
+        let globalInstitutes = [];
+
+        document.addEventListener('DOMContentLoaded', function () {
+            checkAuthorization();
+            loadInstitutes();
+            displayUserInfo();
+        });
+
+        function checkAuthorization() {
+            if (!auth.isEmployee()) {
+                showToast('Non sei autorizzato a vedere questa pagina', 'error');
+                setTimeout(() => window.location.href = '/index.html', 20000);
+            }
+        }
+
+        function displayUserInfo() {
+            const userName = localStorage.getItem('user_name');
+            if (userName) {
+                document.getElementById('userInfo').textContent = `Benvenuto, ${userName}`;
+            }
+        }
+
+        function showToast(message, type = 'info') {
+            const toast = document.createElement('div');
+            toast.className = `toast ${type}`;
+            toast.textContent = message;
+            document.getElementById('toastContainer').appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+        }
+
+        async function loadInstitutes() {
+            try {
+                const response = await fetch('/istituti', {
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`
+                    }
+                });
+                if (!response.ok) throw new Error('Errore nel caricamento degli istituti');
+                const institutes = await response.json();
+                displayInstitutes(institutes);
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        // Rendiamo le funzioni disponibili globalmente
+        window.displayInstitutes = function (institutes) {
+            // Salviamo gli istituti globalmente
+            window.globalInstitutes = institutes;
+
+            const grid = document.getElementById('institutesGrid');
+            grid.innerHTML = institutes.map(institute => `
+        <div class="institute-card" onclick="window.showMachinesById(${institute.ID_istituto})">
+            <h3>${institute.nome}</h3>
+            <p class="address">${institute.indirizzo}</p><hr>
+            <div class="machines-count">
+                <span class="badge">Macchine disponibili: ${countMachines(institute)}</span><br>
+				<span class="badge">Macchine attive: ${countActiveMachines(institute)}</span><br>
+				<span class="badge">Macchine fuori uso: ${countMachinesNonActive(institute)}</span>
+            </div>
+        </div>
+    `).join('');
+        }
+
+        function countActiveMachines(institute) {
+            return institute.macchine ? institute.macchine.filter(m => m.statoId === 1).length : 0;
+        }
+
+        function countMachines(institute) {
+            return institute.macchine ? institute.macchine.length : 0;
+        }
+        function countMachinesNonActive(institute) {
+            return institute.macchine ? institute.macchine.filter(m => m.statoId !== 1).length : 0;
+        }
+
+        function showMachinesById(instituteId) {
+            const institute = globalInstitutes.find(inst => inst.ID_istituto === instituteId);
+            if (institute) {
+                showMachines(institute.ID_istituto, institute.nome, institute.macchine);
+            } else {
+                showToast('Istituto non trovato', 'error');
+            }
+        }
+
+        window.showMachinesById = function (instituteId) {
+            const institute = window.globalInstitutes.find(inst => inst.ID_istituto === instituteId);
+            if (institute) {
+                window.showMachines(institute.ID_istituto, institute.nome, institute.macchine);
+            } else {
+                window.showToast('Istituto non trovato', 'error');
+            }
+        }
+        window.showMachines = function (instituteId, instituteName, machines) {
+            try {
+                // Aggiorna la UI
+                document.getElementById('institutesSection').style.display = 'none';
+                document.getElementById('machinesSection').style.display = 'block';
+                document.getElementById('selectedInstituteName').textContent = instituteName;
+
+                // Mostra le macchine
+                window.displayMachines(machines || []);
+            } catch (error) {
+                window.showToast(error.message, 'error');
+            }
+        }
+
+        window.displayMachines = function (machines) {
+            const machinesList = document.getElementById('machinesList');
+            machinesList.innerHTML = machines.map(machine => `
+        <div class="machine-card" onclick="window.showMaintenance(${machine.id})">
+            <div class="machine-header">
+                <div class="status-badge ${getStatusClass(machine.statoId)}"></div>
+                <h4>Macchina #${machine.id}</h4>
+            </div>
+            <div class="machine-info">
+                <p>Stato: ${machine.statoDescrizione}</p>
+                <p>Cassa: €${machine.cassaAttuale.toFixed(2)} / €${machine.cassaMassima.toFixed(2)}</p>
+            </div>
+        </div>
+    `).join('');
+        }
+
+        window.getStatusClass = function (statoId) {
+            const classi = {
+                1: 'status-available',
+                2: 'status-maintenance',
+                3: 'status-inactive'
+            };
+            return classi[statoId] || 'status-unknown';
+        }
+
+        function getStatusClass(stato) {
+            const classi = {
+                1: 'status-available',
+                2: 'status-maintenance',
+                3: 'status-inactive'
+            };
+            return classi[stato] || 'status-unknown';
+        }
+
+        async function showMaintenance(machineId) {
+            try {
+                document.getElementById('machinesSection').style.display = 'none';
+                document.getElementById('maintenanceSection').style.display = 'block';
+                document.getElementById('selectedMachineId').textContent = machineId;
+
+                const [stateResponse, podsResponse] = await Promise.all([
+                    fetch(`/api/macchine/${machineId}/stato`),
+                    fetch(`/api/ad/manutenzioni/macchine/${machineId}`)
+                ]);
+
+                if (!stateResponse.ok || !podsResponse.ok) {
+                    throw new Error('Errore nel caricamento dei dati di manutenzione');
+                }
+
+                const stateData = await stateResponse.json();
+                const podsData = await podsResponse.json();
+
+                displayMaintenanceDetails(stateData, podsData);
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        function displayMaintenanceDetails(stateData, podsData) {
+            const maintenanceDetails = document.getElementById('maintenanceDetails');
+            maintenanceDetails.innerHTML = `
+            <div class="maintenance-info">
+                <h4>Stato Macchina</h4>
+                <p>Stato: ${getStatoDescrizione(stateData.Stato)}</p>
+                <p>Ultimo intervento: ${stateData.ultimaManutenzione || 'Nessun intervento recente'}</p>
+                
+                <h4 class="mt-4">Livelli Cialde</h4>
+                ${renderPodsStatus(podsData)}
+                
+                <h4 class="mt-4">Segnalazioni Attive</h4>
+                <p>${stateData.segnalazioniAttive ? `${stateData.segnalazioniAttive} segnalazioni` : 'Nessuna segnalazione'}</p>
+            </div>
+        `;
+        }
+
+        function renderPodsStatus(podsData) {
+            if (!podsData.cialde || podsData.cialde.length === 0) {
+                return '<p>Nessun dato sulle cialde disponibile</p>';
+            }
+
+            return `
+            <div class="pods-grid">
+                ${podsData.cialde.map(cialda => `
+                    <div class="pod-status ${cialda.Quantita < cialda.QuantitaMassima * 0.2 ? 'low-stock' : ''}">
+                        <span>${cialda.NomeCialda}</span>
+                        <div class="pod-level">
+                            ${cialda.Quantita}/${cialda.QuantitaMassima}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+        }
+
+        async function sendTechnician() {
+            const machineId = document.getElementById('selectedMachineId').textContent;
+            try {
+                const response = await fetch('/api/ad/manutenzioni', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${localStorage.getItem('jwt_token')}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        macchinaId: parseInt(machineId),
+                        tipo: 'MANUTENZIONE_ORDINARIA',
+                        descrizione: 'Intervento richiesto dall\'operatore'
+                    })
+                });
+
+                if (!response.ok) throw new Error('Errore nell\'invio del tecnico');
+
+                showToast('Tecnico inviato con successo', 'success');
+                await showMaintenance(machineId);
+            } catch (error) {
+                showToast(error.message, 'error');
+            }
+        }
+
+        function backToInstitutes() {
+            document.getElementById('machinesSection').style.display = 'none';
+            document.getElementById('institutesSection').style.display = 'block';
+        }
+
+        function backToMachines() {
+            document.getElementById('maintenanceSection').style.display = 'none';
+            document.getElementById('machinesSection').style.display = 'block';
+        }
+
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_role');
+            localStorage.removeItem('user_name');
+            window.location.href = '/index.html';
+        }
+
+        // Funzione per tornare alla vista degli istituti
+        window.backToInstitutes = function () {
+            document.getElementById('machinesSection').style.display = 'none';
+            document.getElementById('institutesSection').style.display = 'block';
+        }
+
+        // Funzione per tornare alla vista delle macchine
+        window.backToMachines = function () {
+            document.getElementById('maintenanceSection').style.display = 'none';
+            document.getElementById('machinesSection').style.display = 'block';
+        }
+        if (!window.showToast) {
+            window.showToast = function (message, type = 'info') {
+                const toast = document.createElement('div');
+                toast.className = `toast ${type}`;
+                toast.textContent = message;
+                document.getElementById('toastContainer').appendChild(toast);
+                setTimeout(() => toast.remove(), 3000);
+            }
+        }
+    </script>
+</body>
+
+</html>

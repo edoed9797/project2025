@@ -1,0 +1,586 @@
+/* client.css - Stili per l'interfaccia client */
+
+/* Layout base */
+.client-container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: var(--spacing-lg);
+    min-height: 100vh;
+    display: flex;
+    flex-direction: column;
+}
+
+/* Header */
+.client-header {
+    background-color: var(--background);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    margin-bottom: var(--spacing-xl);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    box-shadow: var(--shadow-sm);
+}
+
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-md);
+}
+
+
+
+/* Stile per il testo dello stato */
+.status-text {
+    margin-top: 5px;
+    font-size: 14px;
+    color: #666;
+}
+
+/* Stile per le card degli istituti */
+.institute-card {
+    background-color: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    padding: 16px;
+    margin-bottom: 16px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    cursor: pointer;
+}
+
+.institute-card h3 {
+    margin-top: 0;
+}
+
+.institute-card .address {
+    color: #555;
+}
+
+.institute-card .machines-count {
+    color: #333;
+    font-weight: bold;
+}
+
+/* Bottone per tornare alle macchine */
+#backToMachinesButton {
+    display: none;
+    margin-top: 20px;
+    padding: 10px 20px;
+    background-color: #007bff;
+    color: white;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+}
+
+#backToMachinesButton:hover {
+    background-color: #0056b3;
+}
+.btn-back {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: var(--radius-md);
+    background-color: var(--background-alt);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+}
+
+.btn-back:hover {
+    background-color: var(--border-color);
+    color: var(--primary-color);
+}
+
+/* Welcome Section */
+.welcome-section {
+    text-align: center;
+    padding: var(--spacing-xl) 0;
+}
+
+.welcome-content {
+    max-width: 800px;
+    margin: 0 auto;
+}
+
+.welcome-subtitle {
+    font-size: 1.25rem;
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-xl);
+}
+
+/* Action Cards */
+.action-cards {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-xl);
+}
+
+.action-card {
+    background-color: var(--background);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-xl);
+    text-align: center;
+    box-shadow: var(--shadow-sm);
+    transition: transform 0.2s ease;
+}
+
+.action-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.card-icon {
+    width: 64px;
+    height: 64px;
+    background-color: var(--background-alt);
+    border-radius: var(--radius-full);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+    margin: 0 auto var(--spacing-lg);
+    color: var(--primary-color);
+}
+
+/* Machine Selection */
+.filters-section {
+    display: flex;
+    gap: var(--spacing-md);
+    margin-bottom: var(--spacing-xl);
+    flex-wrap: wrap;
+}
+
+.search-box {
+    flex: 1;
+    min-width: 300px;
+    position: relative;
+}
+
+.search-box input {
+    width: 100%;
+    padding: var(--spacing-md) var(--spacing-md) var(--spacing-md) 3rem;
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    font-size: 1rem;
+    transition: all 0.2s ease;
+}
+
+.search-box input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.search-box i {
+    position: absolute;
+    left: var(--spacing-md);
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--text-light);
+}
+
+.filter-buttons {
+    display: flex;
+    gap: var(--spacing-sm);
+    flex-wrap: wrap;
+}
+
+.filter-btn {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background-color: var(--background);
+    color: var(--text-primary);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-weight: 500;
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+}
+
+.filter-btn.active {
+    background-color: var(--primary-color);
+    border-color: var(--primary-color);
+    color: white;
+}
+
+/* Map Section */
+.map-section {
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    margin-bottom: var(--spacing-xl);
+    position: relative;
+    height: 400px;
+    box-shadow: var(--shadow-sm);
+}
+
+.machines-map {
+    height: 100%;
+}
+
+.map-legend {
+    position: absolute;
+    bottom: var(--spacing-md);
+    right: var(--spacing-md);
+    background-color: var(--background);
+    padding: var(--spacing-md);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-md);
+}
+
+.legend-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-xs);
+    font-size: 0.875rem;
+}
+
+.legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: var(--radius-full);
+}
+
+/* Machine Cards */
+.machines-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: var(--spacing-lg);
+}
+
+.machine-card {
+    background-color: var(--background);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-sm);
+    overflow: hidden;
+    transition: transform 0.2s ease;
+}
+
+.machine-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+}
+
+.card-header {
+    padding: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.card-header h3 {
+    margin: 0;
+    font-size: 1.25rem;
+}
+
+.card-body {
+    padding: var(--spacing-lg);
+}
+
+/* Continuazione client.css */
+
+.location, .institute {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-secondary);
+    margin-bottom: var(--spacing-sm);
+}
+
+.machine-info {
+    display: flex;
+    gap: var(--spacing-lg);
+    margin-top: var(--spacing-md);
+    padding-top: var(--spacing-md);
+    border-top: 1px solid var(--border-color);
+}
+
+.info-item {
+    display: flex;
+    align-items: center;
+    gap: var(--spacing-sm);
+    color: var(--text-primary);
+    font-size: 0.875rem;
+}
+
+.card-footer {
+    padding: var(--spacing-md);
+    background-color: var(--background-alt);
+    text-align: center;
+}
+
+
+
+.status-badge i {
+    font-size: 0.75rem;
+}
+
+.status-badge.active {
+    background-color: rgba(16, 185, 129, 0.1);
+    color: var(--success-color);
+}
+
+.status-badge.maintenance {
+    background-color: rgba(245, 158, 11, 0.1);
+    color: var(--warning-color);
+}
+
+.status-badge.inactive {
+    background-color: rgba(239, 68, 68, 0.1);
+    color: var(--danger-color);
+}
+
+/* Beverage Interface */
+.beverage-interface {
+    display: grid;
+    grid-template-columns: 2fr 1fr;
+    gap: var(--spacing-xl);
+    margin-top: var(--spacing-xl);
+}
+
+.categories-tabs {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+    overflow-x: auto;
+    padding-bottom: var(--spacing-sm);
+}
+
+.tab-button {
+    padding: var(--spacing-md) var(--spacing-lg);
+    border: none;
+    border-radius: var(--radius-lg);
+    background: var(--background-alt);
+    color: var(--text-primary);
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.2s;
+}
+
+.tab-button.active {
+    background: var(--primary-color);
+    color: white;
+}
+
+/* Beverages Grid */
+.beverages-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+    gap: var(--spacing-md);
+}
+
+.beverage-card {
+    background: var(--background);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-md);
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.beverage-card:hover:not(.unavailable) {
+    border-color: var(--primary-color);
+    transform: translateY(-2px);
+}
+
+.beverage-card.selected {
+    border-color: var(--primary-color);
+    background: var(--background-alt);
+}
+
+.beverage-card.unavailable {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+/* Payment Interface */
+.payment-interface {
+    background: var(--background);
+    border-radius: var(--radius-lg);
+    padding: var(--spacing-lg);
+    position: sticky;
+    top: var(--spacing-md);
+    box-shadow: var(--shadow-sm);
+}
+
+.selected-product {
+    margin-bottom: var(--spacing-lg);
+    padding-bottom: var(--spacing-lg);
+    border-bottom: 1px solid var(--border-color);
+}
+
+/* Sugar Control */
+.sugar-control {
+    margin-bottom: var(--spacing-lg);
+}
+
+.sugar-buttons {
+    display: flex;
+    gap: var(--spacing-sm);
+    margin-top: var(--spacing-sm);
+}
+
+.sugar-button {
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-md);
+    border: 1px solid var(--border-color);
+    background: var(--background);
+    cursor: pointer;
+    transition: all 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.sugar-button.active {
+    background: var(--primary-color);
+    color: white;
+    border-color: var(--primary-color);
+}
+
+/* Coin Grid */
+.coin-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: var(--spacing-sm);
+    margin-bottom: var(--spacing-lg);
+}
+
+.coin-button {
+    padding: var(--spacing-md);
+    border: 1px solid var(--border-color);
+    border-radius: var(--radius-lg);
+    background: var(--background);
+    cursor: pointer;
+    transition: all 0.2s;
+    font-weight: 500;
+}
+
+.coin-button:hover {
+    background: var(--background-alt);
+}
+
+/* Credit Display */
+.credit-display {
+    background: var(--background-alt);
+    padding: var(--spacing-lg);
+    border-radius: var(--radius-lg);
+    text-align: center;
+    margin-bottom: var(--spacing-lg);
+}
+
+.credit-amount {
+    font-size: 2rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.credit-label {
+    color: var(--text-secondary);
+    font-size: 0.875rem;
+}
+
+/* Dispensing Animation */
+.dispensing-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    color: white;
+}
+
+.dispensing-animation {
+    text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+    .beverage-interface {
+        grid-template-columns: 1fr;
+    }
+
+    .payment-interface {
+        position: static;
+        margin-top: var(--spacing-lg);
+    }
+}
+
+@media (max-width: 768px) {
+    .client-container {
+        padding: var(--spacing-md);
+    }
+
+    .client-header {
+        flex-direction: column;
+        text-align: center;
+        gap: var(--spacing-md);
+    }
+
+    .filters-section {
+        flex-direction: column;
+    }
+
+    .filter-buttons {
+        justify-content: center;
+    }
+
+    .machines-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .beverages-grid {
+        grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+    }
+
+    .coin-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+/* Animations */
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+@keyframes slideIn {
+    from { 
+        transform: translateY(20px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.fade-in {
+    animation: fadeIn 0.3s ease-in;
+}
+
+.slide-in {
+    animation: slideIn 0.3s ease-out;
+}
+
+/* Print */
+@media print {
+    .client-container {
+        padding: 0;
+    }
+
+    .filters-section,
+    .map-section,
+    .action-buttons {
+        display: none;
+    }
+}

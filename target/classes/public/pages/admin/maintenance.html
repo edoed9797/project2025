@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestione Manutenzioni - Sistema Gestione Distributori</title>
+
+    <link rel="stylesheet" href="../../css/style.css">
+    <link rel="stylesheet" href="../../css/admin.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <script src="../../js/common/utils.js" type="module"></script>
+    <script src="../../js/common/mqtt.js" type="module"></script>
+    <script src="../../js/common/authentication.js" type="module"></script>
+    <script src="../../js/admin/maintenance.js" type="module"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+</head>
+<body>
+    <div class="admin-container">
+        <!-- Header -->
+        <header class="admin-header">
+            <div class="header-title">
+                <h1>Gestione Manutenzioni</h1>
+            </div>
+            <div class="header-actions">
+                <span class="user-info">
+                    <i class="fas fa-user"></i>
+                    <span id="userName"></span>
+                </span>
+                <button class="btn-logout" onclick="auth.logout()">
+                    <i class="fas fa-sign-out-alt"></i> Esci
+                </button>
+            </div>
+        </header>
+
+        <!-- Sidebar -->
+        <nav class="admin-sidebar">
+            <a href="dashboard.html" class="nav-item">
+                <i class="fas fa-tachometer-alt"></i> Dashboard
+            </a>
+            <a href="machines.html" class="nav-item">
+                <i class="fas fa-coffee"></i> Macchine
+            </a>
+            <a href="maintenance.html" class="nav-item active">
+                <i class="fas fa-tools"></i> Manutenzione
+            </a>
+            <a href="institutes.html" class="nav-item">
+                <i class="fas fa-building"></i> Istituti
+            </a>
+            <a href="reports.html" class="nav-item">
+                <i class="fas fa-chart-bar"></i> Report
+            </a>
+            <a href="pods.html" class="nav-item">
+                <i class="fas fa-box"></i> Prodotti
+            </a>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="admin-content">
+            <!-- Filters and Actions -->
+            <div class="content-header">
+                <div class="filters" id="reportFilters">
+                    <div class="search-box">
+                        <input type="text" id="searchMaintenance" placeholder="Cerca manutenzione...">
+                        <i class="fas fa-search"></i>
+                    </div>
+                    <select id="filterStatus">
+                        <option value="">Tutti gli stati</option>
+                        <option value="in_attesa">In Attesa</option>
+                        <option value="assegnata">Assegnata</option>
+                        <option value="in_corso">In Corso</option>
+                        <option value="completata">Completata</option>
+                    </select>
+                    <select id="filterTechnician">
+                        <option value="">Tutti i tecnici</option>
+                    </select>
+                    <select id="filterPriority">
+                        <option value="">Tutte le priorità</option>
+                        <option value="alta">Alta</option>
+                        <option value="media">Media</option>
+                        <option value="bassa">Bassa</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Active Maintenance Requests -->
+            <div class="section">
+                <h2>Richieste di Manutenzione Attive</h2>
+                <div class="maintenance-grid" id="maintenanceList">
+                    <!-- Maintenance requests will be loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Completed Maintenance -->
+            <div class="section">
+                <h2>Manutenzioni Completate</h2>
+                <div class="completed-maintenance" id="completedList">
+                    <!-- Completed maintenance will be loaded dynamically -->
+                </div>
+            </div>
+
+            <!-- Pagination -->
+            <div class="pagination" id="maintenancePagination">
+                <!-- Pagination will be generated dynamically -->
+            </div>
+        </main>
+    </div>
+
+    <!-- Assign Technician Modal -->
+    <div class="modal hidden" id="assignTechnicianModal">
+        <div class="modal-content">
+            <h2>Assegna Tecnico</h2>
+            <form id="assignTechnicianForm">
+                <div class="form-group">
+                    <label for="technicianId">Tecnico:</label>
+                    <select id="technicianId" name="technicianId" required>
+                        <!-- Technicians will be loaded dynamically -->
+                    </select>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="maintenanceManager.closeModals()">
+                        Annulla
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        Assegna
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Complete Maintenance Modal -->
+    <div class="modal hidden" id="completeMaintenanceModal">
+        <div class="modal-content">
+            <h2>Completa Manutenzione</h2>
+            <form id="completeMaintenanceForm">
+                <div class="form-group">
+                    <label for="notes">Note:</label>
+                    <textarea id="notes" name="notes" required></textarea>
+                </div>
+                <div class="form-group">
+                    <label for="partsReplaced">Parti Sostituite:</label>
+                    <textarea id="partsReplaced" name="partsReplaced"></textarea>
+                </div>
+                <div class="form-actions">
+                    <button type="button" class="btn-secondary" onclick="maintenanceManager.closeModals()">
+                        Annulla
+                    </button>
+                    <button type="submit" class="btn-primary">
+                        Completa
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</body>
+</html>
