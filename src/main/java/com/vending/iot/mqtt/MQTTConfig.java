@@ -9,8 +9,8 @@ public class MQTTConfig {
     public static final String CLIENT_ID_PREFIX = "pissir_";
     public static final String USERNAME = "20019309";
     public static final String PASSWORD = "Pissir2024!";
-    public static final int QOS = 0;
-    public static final boolean SSL_ENABLED = false;
+    public static final int QOS = 1;
+    public static final boolean SSL_ENABLED = true;
     
     // Configurazione SSL
     public static final String TRUSTSTORE_PATH = "C:\\mosquitto\\certs\\truststore.jks";

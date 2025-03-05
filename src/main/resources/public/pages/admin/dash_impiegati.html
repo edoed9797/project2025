@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard Amministratore - Sistema Distributori</title>
+    <title>Dashboard Impiegato - Sistema Distributori</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
@@ -15,14 +15,19 @@
         <div class="container mx-auto flex justify-between items-center">
             <h1 class="text-2xl font-bold" >Dashboard Impiegato</h1> 
             <div>
-                <span id="userInfo" class="mr-3"></span>
                 <button onclick="window.location.href = '/index.html'" class="bg-blue-500 px-3 py-2 rounded hover:bg-blue-600">
                     Home
                 </button>
-               </div>
-               <div>
+            </div>
+            <div>
+                <button onclick="window.location.href = '/spegni'" class="btn btn-danger">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+                
+            </div>
+            <div>
                 <span id="userInfo" class="user-info">
-                <span id="userName"></span>
+                    <span id="userName"></span>
                     <i class="fas fa-user"></i>
                 </span>
                 <button onclick="logout()" class="bg-red-500 px-3 py-2 rounded hover:bg-red-600">
@@ -32,8 +37,6 @@
         </div>
     </nav>
     
-    
-
     <!-- Main Content -->
     <div class="container mx-auto p-4">
         <!-- Navigation Tabs -->
@@ -47,6 +50,11 @@
                 <li class="mr-2">
                     <button onclick="showTab('macchine')" class="tab-btn inline-block p-4" data-tab="macchine">
                         <i class="fas fa-coffee mr-2"></i>Macchine
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('manutenzione')" class="tab-btn inline-block p-4" data-tab="manutenzione">
+                        <i class="fas fa-wrench mr-2"></i>Manutenzione
                     </button>
                 </li>
                 <li class="mr-2">
@@ -98,6 +106,29 @@
                 </div>
             </div>
 
+            <!-- Manutenzione Tab -->
+            <div id="manutenzione" class="tab-content hidden">
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-lg font-bold mb-4">Interventi di Manutenzione</h3>
+                    <table class="min-w-full">
+                        <thead>
+                            <tr>
+                                <th class="text-left py-2">ID</th>
+                                <th class="text-left py-2">Macchina</th>
+                                <th class="text-left py-2">Tipo</th>
+                                <th class="text-left py-2">Urgenza</th>
+                                <th class="text-left py-2">Stato</th>
+                                <th class="text-left py-2">Data Richiesta</th>
+                                <th class="text-left py-2">Azioni</th>
+                            </tr>
+                        </thead>
+                        <tbody id="manutenzioniList">
+                            <!-- Populated by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
             <!-- Monitoraggio Tab -->
             <div id="monitoraggio" class="tab-content hidden">
                 <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -119,43 +150,53 @@
     </div>
 
     <!-- Modals -->
-    <!-- View Istituto Modal DA FARE -->
-    <div id="addIstitutoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+    <!-- Dettagli Macchina Modal -->
+    <div id="dettagliMacchinaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-            <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Aggiungi Nuovo Istituto</h3>
-                <div class="mt-2 px-7 py-3">
-                    <input type="text" id="nomeIstituto" placeholder="Nome Istituto" class="mb-3 px-3 py-2 border rounded w-full">
-                    <input type="text" id="indirizzoIstituto" placeholder="Indirizzo" class="mb-3 px-3 py-2 border rounded w-full">
+            <div class="mt-3">
+                <h3 class="text-lg leading-6 font-medium text-gray-900 text-center">Dettagli Macchina</h3>
+                <div class="mt-2 px-7 py-3" id="dettagliMacchinaContent">
+                    <!-- Populated by JavaScript -->
                 </div>
-                <div class="items-center px-4 py-3">
-                    <button id="saveIstitutoBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                        Salva
-                    </button>
-                    <button onclick="hideModal('addIstitutoModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
-                        Annulla
+                <div class="items-center px-4 py-3 text-center">
+                    <button onclick="hideModal('dettagliMacchinaModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Chiudi
                     </button>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- View Macchina Modal DA FARE -->
-    <div id="addMacchinaModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+    <!-- Form Manutenzione Modal -->
+    <div id="manutenzioneModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
         <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
             <div class="mt-3 text-center">
-                <h3 class="text-lg leading-6 font-medium text-gray-900">Aggiungi Nuova Macchina</h3>
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Invia Tecnico Manutenzione</h3>
                 <div class="mt-2 px-7 py-3">
-                    <select id="istitutoSelect" class="mb-3 px-3 py-2 border rounded w-full">
-                        <!-- Populated by JavaScript -->
+                    <input type="hidden" id="macchinaIdManutenzione">
+                    <select id="tipoIntervento" class="mb-3 px-3 py-2 border rounded w-full">
+                        <option value="">-- Seleziona tipo intervento --</option>
+                        <option value="RIFORNIMENTO_CIALDE">Rifornimento Cialde</option>
+                        <option value="SVUOTAMENTO_CASSA">Svuotamento Cassa</option>
+                        <option value="GUASTO">Riparazione Guasto</option>
+                        <option value="MANUTENZIONE_PERIODICA">Manutenzione Periodica</option>
                     </select>
-                    <input type="number" id="cassaMassima" placeholder="Capacità Cassa" class="mb-3 px-3 py-2 border rounded w-full">
+                    <select id="tecnicoId" class="mb-3 px-3 py-2 border rounded w-full">
+                        <option value="">-- Seleziona tecnico --</option>
+                        <!-- Tecnici caricati dinamicamente -->
+                    </select>
+                    <input type="text" id="descrizioneIntervento" placeholder="Descrizione intervento" class="mb-3 px-3 py-2 border rounded w-full">
+                    <select id="urgenzaIntervento" class="mb-3 px-3 py-2 border rounded w-full">
+                        <option value="BASSA">Bassa</option>
+                        <option value="MEDIA" selected>Media</option>
+                        <option value="ALTA">Alta</option>
+                    </select>
                 </div>
                 <div class="items-center px-4 py-3">
-                    <button id="saveMacchinaBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
-                        Salva
+                    <button id="inviaTecnicoBtn" class="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600">
+                        Invia Tecnico
                     </button>
-                    <button onclick="hideModal('addMacchinaModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                    <button onclick="hideModal('manutenzioneModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
                         Annulla
                     </button>
                 </div>
@@ -164,19 +205,17 @@
     </div>
 
     <script>
-    const userInfo = document.getElementById('userInfo');
-    const userNameSpan = document.getElementById('userName');
-    userNameSpan.textContent = localStorage.getItem('user_name');
         // API Configuration
-        const API_BASE_URL = 'https://localhost:8443/api';
+        const API_BASE_URL = 'https://localhost:8443';
         let currentUser = null;
         let currentTab = 'istituti';
 
         // Check Authentication
         function checkAuth() {
             const token = localStorage.getItem('jwt_token');
-            // Check ruolo da fare e anche da fare in dash admin
-            if (!token) {
+            const ruolo = localStorage.getItem('user_role');
+            
+            if (!token || (ruolo !== 'Operatore' && ruolo !== 'Amministratore')) {
                 window.location.href = '/index.html';
                 return;
             }
@@ -184,11 +223,15 @@
             // Set authorization header for all requests
             axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
             
+            // Aggiorna le informazioni utente nell'interfaccia
+            document.getElementById('userName').textContent = localStorage.getItem('user_name') || '';
         }
 
         // Logout Function
         function logout() {
             localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('user_role');
             window.location.href = '/index.html';
         }
 
@@ -230,13 +273,16 @@
                 case 'macchine':
                     loadMacchine();
                     break;
+                case 'manutenzione':
+                    loadManutenzioni();
+                    break;
                 case 'monitoraggio':
                     loadMonitoraggio();
                     break;
             }
         }
 
-        // Istituti Management
+        // Funzione per caricare gli istituti con la funzionalità espandibile
         function loadIstituti() {
             axios.get(`${API_BASE_URL}/istituti`)
                 .then(response => {
@@ -245,19 +291,40 @@
                     tbody.innerHTML = '';
                     
                     istituti.forEach(istituto => {
-                    	const macchine = istituto.macchine ? istituto.macchine.length : 0;
+                        const macchine = istituto.macchine ? istituto.macchine.length : 0;
                         const row = document.createElement('tr');
                         row.innerHTML = `
                             <td class="py-2">${istituto.nome}</td>
                             <td class="py-2">${istituto.indirizzo}</td>
-                            <td class="py-2">${macchine}</td>
                             <td class="py-2">
-                                <button onclick="vediIstituto(${istituto.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                                <span class="cursor-pointer text-blue-600 hover:underline" onclick="toggleMacchineIstituto(${istituto.id})">
+                                    ${macchine} <i class="fas fa-chevron-down ml-1"></i>
+                                </span>
+                            </td>
+                            <td class="py-2">
+                                <button onclick="editIstituto(${istituto.id})" class="text-blue-500 hover:text-blue-700 mr-2">
                                     <i class="fas fa-edit"></i>
+                                </button>
+                                <button onclick="deleteIstituto(${istituto.id})" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
                                 </button>
                             </td>
                         `;
                         tbody.appendChild(row);
+                        
+                        // Creiamo una riga nascosta per il contenuto espandibile
+                        const contentRow = document.createElement('tr');
+                        contentRow.id = `istituto-macchine-${istituto.id}`;
+                        contentRow.className = 'hidden';
+                        contentRow.innerHTML = `
+                            <td colspan="4" class="py-2 px-4 bg-gray-50">
+                                <div class="text-sm font-medium mb-2">Macchine dell'istituto</div>
+                                <div id="macchine-list-${istituto.id}" class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    <div class="text-center text-gray-500">Caricamento...</div>
+                                </div>
+                            </td>
+                        `;
+                        tbody.appendChild(contentRow);
                     });
                 })
                 .catch(error => {
@@ -266,26 +333,54 @@
                 });
         }
 
-        // // Save Istituto
-        // document.getElementById('saveIstitutoBtn').addEventListener('click', () => {
-        //     const nome = document.getElementById('nomeIstituto').value;
-        //     const indirizzo = document.getElementById('indirizzoIstituto').value;
-        //     if (!nome || !indirizzo) {
-        //         alert('Compilare tutti i campi');
-        //         return;
-        //     }
-            
-        //     axios.post(`${API_BASE_URL}/admin/istituti`, { nome, indirizzo })
-        //         .then(() => {
-        //             hideModal('addIstitutoModal');
-        //             loadIstituti();
-        //         })
-        //         .catch(error => {
-        //             console.error('Error saving istituto:', error);
-        //             alert('Errore nel salvataggio dell\'istituto');
-        //         });
-        // });
+        // Funzione per mostrare/nascondere le macchine di un istituto
+        function toggleMacchineIstituto(istitutoId) {
+            const contentRow = document.getElementById(`istituto-macchine-${istitutoId}`);
+            if (contentRow.classList.contains('hidden')) {
+                contentRow.classList.remove('hidden');
+                loadMacchineIstituto(istitutoId);
+            } else {
+                contentRow.classList.add('hidden');
+            }
+        }
 
+        // Funzione per caricare le macchine di un istituto specifico
+        function loadMacchineIstituto(istitutoId) {
+            axios.get(`${API_BASE_URL}/macchine/istituto/${istitutoId}`)
+                .then(response => {
+                    const macchine = response.data;
+                    const macchineContainer = document.getElementById(`macchine-list-${istitutoId}`);
+                    
+                    if (macchine.length === 0) {
+                        macchineContainer.innerHTML = '<div class="text-center text-gray-500">Nessuna macchina presente</div>';
+                        return;
+                    }
+                    
+                    macchineContainer.innerHTML = '';
+                    macchine.forEach(macchina => {
+                        const card = document.createElement('div');
+                        card.className = 'border rounded p-3 bg-white cursor-pointer hover:bg-blue-50';
+                        card.onclick = () => showMacchinaDetails(macchina.id);
+                        card.innerHTML = `
+                            <div class="font-medium">Macchina #${macchina.id}</div>
+                            <div class="text-sm">
+                                <span class="px-2 py-1 rounded text-xs ${getStatoClass(macchina.statoId)}">
+                                    ${macchina.statoDescrizione}
+                                </span>
+                                <span class="ml-2">Cassa: €${macchina.cassaAttuale.toFixed(2)}</span>
+                            </div>
+                        `;
+                        macchineContainer.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading macchine per istituto:', error);
+                    const macchineContainer = document.getElementById(`macchine-list-${istitutoId}`);
+                    macchineContainer.innerHTML = '<div class="text-center text-red-500">Errore nel caricamento</div>';
+                });
+        }
+
+        // Machine Management
         // Machine Management
         function loadMacchine() {
             axios.get(`${API_BASE_URL}/macchine`)
@@ -296,6 +391,8 @@
                     
                     macchine.forEach(macchina => {
                         const row = document.createElement('tr');
+                        row.className = 'cursor-pointer hover:bg-gray-50';
+                        row.onclick = () => showMacchinaDetails(macchina.id);
                         row.innerHTML = `
                             <td class="py-2">${macchina.id}</td>
                             <td class="py-2">${macchina.nomeIstituto}</td>
@@ -305,12 +402,12 @@
                                 </span>
                             </td>
                             <td class="py-2">€${macchina.cassaAttuale.toFixed(2)}</td>
-                            <td class="py-2">
-                                <button onclick="infoMacchina(${macchina.id})" class="text-blue-500 hover:text-blue-700 mr-2">
+                            <td class="py-2" onclick="event.stopPropagation()">
+                                <button onclick="configuraMacchina(${macchina.id})" class="text-blue-500 hover:text-blue-700 mr-2">
                                     <i class="fas fa-cog"></i>
                                 </button>
-                                <button onclick="mandaTecnico(${macchina.id})" class="text-blue-500 hover:text-blue-700 mr-2">
-                                    <i class="fas fa-cog"></i>
+                                <button onclick="deleteMacchina(${macchina.id})" class="text-red-500 hover:text-red-700">
+                                    <i class="fas fa-trash"></i>
                                 </button>
                             </td>
                         `;
@@ -322,62 +419,254 @@
                     alert('Errore nel caricamento delle macchine');
                 });
         }
-    
-        // Vedi Istituto
-        function vediIstituto(id) {
-		    const nome = prompt('Nuovo nome istituto:');
-		    const indirizzo = prompt('Nuovo indirizzo:');
-		
-		    if (nome && indirizzo) {
-		        axios.put(`${API_BASE_URL}/admin/istituti/${id}`, { nome, indirizzo })
-		            .then(() => {
-		                loadIstituti();
-		            })
-		            .catch(error => {
-		                console.error('Error updating istituto:', error);
-		                alert('Errore nell\'aggiornamento dell\'istituto');
-		            });
-		    }
-		}
 
-        // Vedi Macchina
-        function infoMacchina(id) {
-            const statoId = prompt('Nuovo stato (1=Attiva, 2=Manutenzione, 3=Fuori servizio):');
-            if (statoId) {
-                axios.put(`${API_BASE_URL}/admin/macchine/${id}/stato`, { statoId: parseInt(statoId) })
-                    .then(() => {
-                    	loadMacchine();
-                    	alert('Stato aggiornato correttamente!');
-                    })
-                    .catch(error => {
-                        console.error('Error updating machine status:', error);
-                        alert('Errore nell\'aggiornamento dello stato della macchina');
-                    });
+        // Funzione per mostrare i dettagli di una macchina in un modal
+        function showMacchinaDetails(macchinaId) {
+            // Assicuriamoci che esista un modal per i dettagli della macchina
+            if (!document.getElementById('macchinaDetailsModal')) {
+                const modal = document.createElement('div');
+                modal.id = 'macchinaDetailsModal';
+                modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center';
+                modal.innerHTML = `
+                    <div class="relative mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+                        <div class="flex justify-between items-center border-b pb-3">
+                            <h3 class="text-lg font-medium text-gray-900" id="macchinaDetailsTitle">Dettagli Macchina</h3>
+                            <button onclick="hideModal('macchinaDetailsModal')" class="text-gray-400 hover:text-gray-500">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="macchinaDetailsContent" class="mt-4">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i>
+                                <p>Caricamento...</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
             }
+            
+            // Mostriamo il modal
+            showModal('macchinaDetailsModal');
+            
+            // Carichiamo i dettagli della macchina
+            axios.get(`${API_BASE_URL}/macchine/${macchinaId}`)
+                .then(response => {
+                    const macchina = response.data;
+                    const contentDiv = document.getElementById('macchinaDetailsContent');
+                    const title = document.getElementById('macchinaDetailsTitle');
+                    
+                    title.textContent = `Dettagli Macchina #${macchina.id}`;
+                    
+                    // Organizziamo i dati in sezioni
+                    let bevandeHtml = '';
+                    if (macchina.bevande && macchina.bevande.length > 0) {
+                        bevandeHtml = `
+                            <div class="mt-4">
+                                <h4 class="font-medium text-gray-700 mb-2">Bevande Disponibili</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    ${macchina.bevande.map(bevanda => `
+                                        <div class="border rounded p-2 bg-gray-50">
+                                            <div class="font-medium">${bevanda.nome}</div>
+                                            <div class="text-sm">Prezzo: €${bevanda.prezzo.toFixed(2)}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    let cialdeHtml = '';
+                    if (macchina.cialde && macchina.cialde.length > 0) {
+                        cialdeHtml = `
+                            <div class="mt-4">
+                                <h4 class="font-medium text-gray-700 mb-2">Stato Cialde</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    ${macchina.cialde.map(cialda => `
+                                        <div class="border rounded p-2 bg-gray-50">
+                                            <div class="font-medium">${cialda.nomeCialda || 'Cialda #' + cialda.cialdaId}</div>
+                                            <div class="text-sm">Quantità: ${cialda.quantita}/${cialda.quantitaMassima}</div>
+                                            <div class="mt-1 bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${(cialda.quantita/cialda.quantitaMassima*100).toFixed(0)}%"></div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Componiamo il contenuto completo
+                    contentDiv.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Informazioni Generali</h4>
+                                <table class="min-w-full text-sm">
+                                    <tr>
+                                        <td class="py-1 font-medium">ID:</td>
+                                        <td>${macchina.id}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Istituto:</td>
+                                        <td>${macchina.nomeIstituto}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Stato:</td>
+                                        <td>
+                                            <span class="px-2 py-1 rounded ${getStatoClass(macchina.statoId)}">
+                                                ${macchina.statoDescrizione}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Stato Cassa</h4>
+                                <table class="min-w-full text-sm">
+                                    <tr>
+                                        <td class="py-1 font-medium">Credito Attuale:</td>
+                                        <td>€${macchina.creditoAttuale.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Cassa Attuale:</td>
+                                        <td>€${macchina.cassaAttuale.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Capacità Cassa:</td>
+                                        <td>€${macchina.cassaMassima.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Riempimento:</td>
+                                        <td>
+                                            <div class="mt-1 bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-green-600 h-2.5 rounded-full" 
+                                                    style="width: ${(macchina.cassaAttuale/macchina.cassaMassima*100).toFixed(0)}%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        ${bevandeHtml}
+                        ${cialdeHtml}
+                        
+                        <div class="mt-6 text-right">
+                            <button onclick="configuraMacchina(${macchina.id})" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                <i class="fas fa-cog mr-2"></i>Configura
+                            </button>
+                            <button onclick="hideModal('macchinaDetailsModal')" class="ml-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                Chiudi
+                            </button>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error loading macchina details:', error);
+                    const contentDiv = document.getElementById('macchinaDetailsContent');
+                    contentDiv.innerHTML = `
+                        <div class="text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p>Errore nel caricamento dei dettagli della macchina.</p>
+                        </div>
+                    `;
+                });
         }
 
-        // MandaTecnico
-        function mandaTecnico(id) {
-            const statoId = prompt('Nuovo stato (1=Attiva, 2=Manutenzione, 3=Fuori servizio):');
-            if (statoId) {
-                axios.put(`${API_BASE_URL}/admin/macchine/${id}/stato`, { statoId: parseInt(statoId) })
-                    .then(() => {
-                    	loadMacchine();
-                    	alert('Stato aggiornato correttamente!');
-                    })
-                    .catch(error => {
-                        console.error('Error updating machine status:', error);
-                        alert('Errore nell\'aggiornamento dello stato della macchina');
+        function preparaManutenzione(id) {
+            document.getElementById('macchinaIdManutenzione').value = id;
+            
+            // Carica i tecnici disponibili
+            axios.get(`${API_BASE_URL}/api/admin/utenti/ruolo/Tecnico`)
+                .then(response => {
+                    const tecnici = response.data;
+                    const select = document.getElementById('tecnicoId');
+                    select.innerHTML = '<option value="">-- Seleziona tecnico --</option>';
+                    
+                    tecnici.forEach(tecnico => {
+                        select.innerHTML += `<option value="${tecnico.id}">${tecnico.nome}</option>`;
                     });
-            }
+                    
+                    showModal('manutenzioneModal');
+                })
+                .catch(error => {
+                    console.error('Error loading technicians:', error);
+                    // In caso di errore, mostra comunque il modal con un tecnico generico
+                    document.getElementById('tecnicoId').innerHTML = '<option value="1">Tecnico generico</option>';
+                    showModal('manutenzioneModal');
+                });
         }
+
+        // Invia tecnico per manutenzione
+        document.getElementById('inviaTecnicoBtn').addEventListener('click', () => {
+            const macchinaId = document.getElementById('macchinaIdManutenzione').value;
+            const tipoIntervento = document.getElementById('tipoIntervento').value;
+            const tecnicoId = document.getElementById('tecnicoId').value || 1; // Default tecnico
+            const descrizione = document.getElementById('descrizioneIntervento').value;
+            const urgenza = document.getElementById('urgenzaIntervento').value;
+            
+            if (!tipoIntervento || !descrizione) {
+                alert('Compilare tutti i campi obbligatori');
+                return;
+            }
+            
+            axios.post(`${API_BASE_URL}/api/manutenzione`, {
+                macchinaId: parseInt(macchinaId),
+                tipoIntervento,
+                tecnicoId: parseInt(tecnicoId),
+                descrizione,
+                urgenza
+            })
+            .then(() => {
+                hideModal('manutenzioneModal');
+                alert('Tecnico inviato con successo!');
+                loadManutenzioni();
+                loadMacchine(); // Aggiorna anche la lista delle macchine
+            })
+            .catch(error => {
+                console.error('Error sending technician:', error);
+                alert('Errore nell\'invio del tecnico: ' + (error.response?.data?.errore || error.message));
+            });
+        });
 
         // Gestione Manutenzioni
         function loadManutenzioni() {
-            axios.get(`${API_BASE_URL}/manutenzioni`)
+            axios.get(`${API_BASE_URL}/api/manutenzione`)
                 .then(response => {
                     const manutenzioni = response.data;
-                    // Implementare la visualizzazione delle manutenzioni
+                    const tbody = document.getElementById('manutenzioniList');
+                    tbody.innerHTML = '';
+                    
+                    if (manutenzioni.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="7" class="py-4 text-center">Nessuna manutenzione in corso</td></tr>';
+                        return;
+                    }
+                    
+                    manutenzioni.forEach(manutenzione => {
+                        const row = document.createElement('tr');
+                        const dataRichiesta = new Date(manutenzione.dataRichiesta).toLocaleString();
+                        
+                        row.innerHTML = `
+                            <td class="py-2">${manutenzione.id}</td>
+                            <td class="py-2">${manutenzione.macchinaId}</td>
+                            <td class="py-2">${manutenzione.tipoIntervento}</td>
+                            <td class="py-2">
+                                <span class="px-2 py-1 rounded ${getUrgenzaClass(manutenzione.urgenza)}">
+                                    ${manutenzione.urgenza}
+                                </span>
+                            </td>
+                            <td class="py-2">${manutenzione.stato}</td>
+                            <td class="py-2">${dataRichiesta}</td>
+                            <td class="py-2">
+                                ${manutenzione.stato !== 'COMPLETATA' ? 
+                                    `<button onclick="completaManutenzione(${manutenzione.id})" class="text-green-500 hover:text-green-700 mr-2">
+                                        <i class="fas fa-check"></i> Completa
+                                    </button>` : 
+                                    '<span class="text-gray-500"><i class="fas fa-check-circle"></i> Completata</span>'}
+                            </td>
+                        `;
+                        tbody.appendChild(row);
+                    });
                 })
                 .catch(error => {
                     console.error('Error loading maintenance data:', error);
@@ -385,89 +674,59 @@
                 });
         }
 
-        function iniziaManutenzione(macchinaId) {
-            axios.post(`${API_BASE_URL}/manutenzione`, { macchinaId })
-                .then(() => {
-                    loadManutenzioni();
-                })
-                .catch(error => {
-                    console.error('Error starting maintenance:', error);
-                    alert('Errore nell\'avvio della manutenzione');
-                });
+        function completaManutenzione(id) {
+            const note = prompt('Inserisci note di completamento:');
+            if (note !== null) {
+                axios.put(`${API_BASE_URL}/api/manutenzione/${id}/completa`, { note })
+                    .then(() => {
+                        alert('Manutenzione completata con successo!');
+                        loadManutenzioni();
+                        loadMacchine(); // Aggiorna anche la lista delle macchine
+                    })
+                    .catch(error => {
+                        console.error('Error completing maintenance:', error);
+                        alert('Errore nel completamento della manutenzione');
+                    });
+            }
         }
 
-        // function completaManutenzione(id) {
-        //     axios.put(`${API_BASE_URL}/manutenzione/${id}/completa`)
-        //         .then(() => {
-        //             loadManutenzioni();
-        //         })
-        //         .catch(error => {
-        //             console.error('Error completing maintenance:', error);
-        //             alert('Errore nel completamento della manutenzione');
-        //         });
-        // }
-
-        // function setFuoriServizio(macchinaId) {
-        //     axios.put(`${API_BASE_URL}/manutenzione/${macchinaId}/fuori-servizio`)
-        //         .then(() => {
-        //             loadMacchine();
-        //         })
-        //         .catch(error => {
-        //             console.error('Error setting machine out of service:', error);
-        //             alert('Errore nell\'impostazione fuori servizio');
-        //         });
-        // }
-        
-        
         function loadMonitoraggio() {
-            // Carica lo stato del sistema
-            axios.get(`${API_BASE_URL}/monitoraggio/stato`)
+            // Carica le macchine e il loro stato
+            axios.get(`${API_BASE_URL}/api/macchine`)
                 .then(response => {
-                    const statoSistema = response.data;
+                    const macchine = response.data;
                     const statoSistemaDiv = document.getElementById('statoSistema');
+                    
+                    // Calcola lo stato generale del sistema
+                    const totale = macchine.length;
+                    const attive = macchine.filter(m => m.statoId === 1).length;
+                    const percentualeAttive = totale > 0 ? (attive / totale * 100).toFixed(0) : 0;
+                    
+                    const statoDescrizione = percentualeAttive > 80 ? 
+                        "Sistema funzionante correttamente" : 
+                        percentualeAttive > 50 ? 
+                            "Sistema parzialmente funzionante" : 
+                            "Sistema compromesso";
+                    
                     statoSistemaDiv.innerHTML = `
-                        <div class="text-lg">${statoSistema.stato}</div>
-                        <div class="text-gray-600">${statoSistema.descrizione}</div>
+                        <div class="text-lg">${percentualeAttive}% delle macchine attive</div>
+                        <div class="text-gray-600">${statoDescrizione}</div>
+                        <div class="mt-2">
+                            <div class="text-sm">Macchine attive: ${attive}/${totale}</div>
+                        </div>
                     `;
-                })
-                .catch(error => {
-                    console.error('Error loading stato sistema:', error);
-                    alert('Errore nel caricamento dello stato del sistema');
-                });
-
-            // Carica gli allarmi attivi
-            axios.get(`${API_BASE_URL}/monitoraggio/allarmi`)
-                .then(response => {
-                    const allarmi = response.data;
-                    const allarmiList = document.getElementById('allarmiList');
-                    allarmiList.innerHTML = '';
-
-                    allarmi.forEach(allarme => {
-                        const div = document.createElement('div');
-                        div.className = 'mb-2';
-                        div.innerHTML = `
-                            <span class="font-medium">${allarme.tipo}</span>: 
-                            <span class="text-gray-600">${allarme.descrizione}</span>
-                        `;
-                        allarmiList.appendChild(div);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error loading allarmi:', error);
-                    alert('Errore nel caricamento degli allarmi');
-                });
-
-            // Carica le performance delle macchine
-            axios.get(`${API_BASE_URL}/monitoraggio/performance`)
-                .then(response => {
-                    const performance = response.data;
+                    
+                    // Prepara i dati per il grafico delle performance
+                    const inManutenzione = macchine.filter(m => m.statoId === 2).length;
+                    const fuoriServizio = macchine.filter(m => m.statoId === 3).length;
+                    
                     const perfCtx = document.getElementById('performanceChart').getContext('2d');
                     new Chart(perfCtx, {
                         type: 'doughnut',
                         data: {
                             labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
                             datasets: [{
-                                data: [performance.attive, performance.inManutenzione, performance.fuoriServizio],
+                                data: [attive, inManutenzione, fuoriServizio],
                                 backgroundColor: [
                                     'rgb(34, 197, 94)',
                                     'rgb(234, 179, 8)',
@@ -481,8 +740,45 @@
                     });
                 })
                 .catch(error => {
-                    console.error('Error loading performance:', error);
-                    alert('Errore nel caricamento delle performance');
+                    console.error('Error loading macchine:', error);
+                    alert('Errore nel caricamento dello stato del sistema');
+                });
+
+            // Carica le manutenzioni attive (allarmi)
+            axios.get(`${API_BASE_URL}/api/manutenzione`)
+                .then(response => {
+                    const manutenzioni = response.data.filter(m => m.stato !== "COMPLETATA");
+                    const allarmiList = document.getElementById('allarmiList');
+                    allarmiList.innerHTML = '';
+
+                    if (manutenzioni.length === 0) {
+                        const div = document.createElement('div');
+                        div.className = 'text-green-600';
+                        div.innerHTML = 'Nessun allarme attivo';
+                        allarmiList.appendChild(div);
+                    } else {
+                        manutenzioni.forEach(manutenzione => {
+                            const div = document.createElement('div');
+                            div.className = 'mb-2 p-2 border-l-4 ' + 
+                                (manutenzione.urgenza === 'ALTA' ? 'border-red-500 bg-red-50' : 
+                                manutenzione.urgenza === 'MEDIA' ? 'border-yellow-500 bg-yellow-50' : 
+                                'border-blue-500 bg-blue-50');
+                            
+                            div.innerHTML = `
+                                <span class="font-medium">Macchina #${manutenzione.macchinaId}</span>: 
+                                <span class="text-gray-600">${manutenzione.tipoIntervento}</span>
+                                <div class="text-sm">${manutenzione.descrizione}</div>
+                                <div class="text-xs text-gray-500">
+                                    Richiesta: ${new Date(manutenzione.dataRichiesta).toLocaleString()}
+                                </div>
+                            `;
+                            allarmiList.appendChild(div);
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error loading allarmi:', error);
+                    alert('Errore nel caricamento degli allarmi');
                 });
         }
 
@@ -495,11 +791,19 @@
             }
         }
 
+        function getUrgenzaClass(urgenza) {
+            switch(urgenza) {
+                case 'ALTA': return 'bg-red-100 text-red-800';
+                case 'MEDIA': return 'bg-yellow-100 text-yellow-800';
+                case 'BASSA': return 'bg-blue-100 text-blue-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
         // Initialize Application
         document.addEventListener('DOMContentLoaded', () => {
             checkAuth();
             showTab('istituti');
-            initCharts();
         });
     </script>
 </body>

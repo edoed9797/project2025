@@ -53,7 +53,7 @@ public class GestoreCassa {
         this.mqttClient = new MQTTClient("cassa_" + idMacchina);
 
         logger.info("Inizializzazione GestoreCassa per macchina {}", idMacchina);
-        inizializzaSottoscrizioni();
+        
     }
 
     /**
@@ -110,8 +110,8 @@ public class GestoreCassa {
      * @throws MqttException se si verificano errori nella sottoscrizione ai
      * topic MQTT
      */
-    private void inizializzaSottoscrizioni() throws MqttException {
-        String baseTopic = "macchine/" + idMacchina + "/cassa/";
+    /*private void inizializzaSottoscrizioni() throws MqttException {
+        String baseTopic = "macchine/+/cassa/";
         mqttClient.subscribe(baseTopic + "#", (topic, messaggio) -> {
             logger.debug("Ricevuto messaggio sul topic {}: {}", topic, messaggio);
             String azione = topic.substring(baseTopic.length());
@@ -136,7 +136,7 @@ public class GestoreCassa {
             }
         });
         logger.info("Sottoscrizioni inizializzate per la macchina {}", idMacchina);
-    }
+    }*/
 
     /**
      * Gestisce l'inserimento di una moneta nella cassa. Verifica se l'importo
@@ -154,7 +154,9 @@ public class GestoreCassa {
         if (puoAccettareImporto(importo)) {
             creditoAttuale.updateAndGet(credito -> credito + importo);
             logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale.get(), idMacchina);
+            double att = creditoAttuale.get();
             pubblicaStatoCredito();
+            impostaSaldoCassa(att);
             return true;
         } else {
             logger.warn("Impossibile accettare l'importo {} - cassa piena", importo);
@@ -191,12 +193,14 @@ public class GestoreCassa {
     /**
      * Gestisce la restituzione del credito all'utente. Azzera il credito
      * attuale e pubblica la conferma dell'operazione.
+     * @return 
      */
-    public void gestisciRestituzioneCredito() {
+    public double gestisciRestituzioneCredito() {
         double importoRestituito = creditoAttuale.getAndSet(0.0);
         logger.info("Restituzione credito: {} per la macchina {}", importoRestituito, idMacchina);
         pubblicaRestituzione(importoRestituito);
         pubblicaStatoCredito();
+        return importoRestituito;
     }
 
     /**

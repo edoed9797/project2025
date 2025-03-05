@@ -15,8 +15,10 @@ import com.vending.api.controllers.*;
 import com.vending.api.middleware.*;
 import com.vending.core.services.*;
 import com.vending.iot.machines.*;
+import com.vending.iot.mqtt.MQTTBrokerManager;
 import com.vending.iot.mqtt.MQTTClient;
 import com.vending.iot.mqtt.MQTTConfig;
+import com.vending.iot.mqtt.MQTTWebSocketBridge;
 import com.vending.security.auth.*;
 import com.vending.security.jwt.JWTService;
 import com.vending.utils.config.ConfigUtil;
@@ -44,6 +46,7 @@ public class Main {
     private static final Gson gson = new Gson();
     private static Properties config;
     private static MQTTClient mqttClient;
+    private static MQTTWebSocketBridge mqttWebSocketBridge;
     private static final Map<Integer, MacchinaPrincipale> macchineAttive = new ConcurrentHashMap<>();
 
     public static void main(String[] args) {
@@ -107,9 +110,9 @@ public class Main {
 
         // Registra i repository nel ServiceRegistry
         ServiceRegistry.register("cialdaRepository", cialdaRepository);
-        ServiceRegistry.register("bevandaRepository", bevandaRepository);
         ServiceRegistry.register("utenteRepository", utenteRepository);
         ServiceRegistry.register("macchinaRepository", macchinaRepository);
+        ServiceRegistry.register("bevandaRepository", bevandaRepository);
         ServiceRegistry.register("manutenzioneRepository", manutenzioneRepository);
         ServiceRegistry.register("ricavoRepository", ricavoRepository);
         ServiceRegistry.register("transazioneRepository", transazioneRepository);
@@ -128,7 +131,6 @@ public class Main {
         RicavoService ricavoService = new RicavoService(ricavoRepository);
         TransazioneService transazioneService = new TransazioneService(transazioneRepository);
         MacchinaController macchinaController = new MacchinaController(macchinaRepository, bevandaRepository);
-        PublicController publicController = new PublicController(macchinaRepository, bevandaRepository, istitutoRepository, transazioneRepository);
         AdminLoginService adminLoginService = new AdminLoginService(adminLoginRepository, utenteRepository);
 
         // Registra i servizi
@@ -141,14 +143,18 @@ public class Main {
         ServiceRegistry.register("manutenzioneService", manutenzioneService);
         ServiceRegistry.register("ricavoService", ricavoService);
         ServiceRegistry.register("transazioneService", transazioneService);
-        ServiceRegistry.register("publicController", publicController);
         ServiceRegistry.register("adminLoginService", adminLoginService);
         ServiceRegistry.register("macchinaController", macchinaController);
-
+        
+        TransazioneController transazioneController = new TransazioneController(
+        	    ServiceRegistry.get(TransazioneService.class)
+        	);
+        ServiceRegistry.register("transazioneController", transazioneController);
+        
     }
 
     private static void configureServer() {
-    	 // Carica la configurazione
+    	// Carica la configurazione del server
         String keystorePath = config.getProperty("server.keystore.path", "C:\\Users\\Ed\\eclipse-workspace\\mqtt_20019309\\src\\main\\resources\\keystore.p12");
         String keystorePassword = config.getProperty("server.keystore.password", "Pissir2024!");
         int port = Integer.parseInt(config.getProperty("server.port", "8443"));
@@ -160,11 +166,12 @@ public class Main {
         
         // Configura la cartella dei file statici
         staticFiles.location("/public");
+        
         staticFiles.header("Access-Control-Allow-Origin", "*");
         staticFiles.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
         staticFiles.header("Access-Control-Allow-Headers", "Content-Type, Authorization");
 
-        // Configura CORS
+        // Configura CORS 
         CORSMiddleware corsMiddleware = new CORSMiddleware();
         before((request, response) -> corsMiddleware.applicaCORS(request, response));
 
@@ -198,7 +205,7 @@ public class Main {
     }
 
     private static void initMQTT() throws Exception {
-        // Configurazione opzioni MQTT
+        /* // Configurazione opzioni MQTT
         MqttConnectOptions options = new MqttConnectOptions();
         
         // Configurazione base
@@ -221,17 +228,59 @@ public class Main {
             sslProperties.setProperty("com.ibm.ssl.protocol", "TLSv1.2");
             options.setSSLProperties(sslProperties);
         } catch (Exception e) {
+            logger.error("Errore nella configurazione SSL: {}", e.getMessage());
             throw new MqttException(new RuntimeException("Errore nella configurazione SSL", e));
         }
+        
         // Configurazione Last Will and Testament (LWT)
         options.setWill("system/server/status", "offline".getBytes(), 1, true);
 
-        // Inizializza e connetti il client MQTT
+        // Inizializza e connetti il client MQTT principale
         mqttClient = new MQTTClient("server");
         mqttClient.connect(options);
-        
         logger.info("Client MQTT inizializzato e connesso");
-    }
+        
+        // Inizializza e avvia il bridge WebSocket-MQTT
+        MQTTWebSocketBridge mqttBridge = null;
+        try {
+            mqttBridge = new MQTTWebSocketBridge();
+            mqttBridge.start();
+            logger.info("MQTT WebSocket Bridge avviato con successo");
+            
+            // Registra il bridge nel ServiceRegistry per recuperarlo in seguito
+            ServiceRegistry.register("mqttBridge", mqttBridge);
+        } catch (MqttException e) {
+            logger.error("Errore durante l'avvio del MQTT WebSocket Bridge: {}", e.getMessage());
+            // Non blocchiamo l'inizializzazione del sistema se il bridge fallisce
+            if (mqttBridge != null) {
+                try {
+                    mqttBridge.stop();
+                } catch (Exception ex) {
+                    logger.error("Errore durante il cleanup del bridge fallito: {}", ex.getMessage());
+                }
+            }
+        }
+        
+        // Configura le sottoscrizioni ai topic MQTT
+        setupMQTTTopics();
+        
+        mqttWebSocketBridge = new MQTTWebSocketBridge();
+        mqttWebSocketBridge.start();
+        logger.info("MQTT WebSocket Bridge avviato");*/
+    	
+    	 try {
+    	        // Inizializza il broker manager invece di creare un client MQTT direttamente
+    	        MQTTBrokerManager brokerManager = MQTTBrokerManager.getInstance();
+    	        
+    	        // Ottieni un client MQTT tramite il manager
+    	        mqttClient = new MQTTClient("server");
+    	        
+    	        logger.info("MQTTBrokerManager inizializzato e client server connesso");
+    	    } catch (Exception e) {
+    	        logger.error("Errore durante l'inizializzazione del broker MQTT", e);
+    	        throw new RuntimeException("Errore durante l'inizializzazione del broker MQTT", e);
+    	    }
+    	}
 
     private static void initMacchine() {
         try {
@@ -295,7 +344,6 @@ public class Main {
         ServiceRegistry.register("manutenzioneController", manutenzioneController);
         ServiceRegistry.register("utenteController", utenteController);
 
-        String base = "/api";
         get("/", (req, res) -> {
             res.redirect("/index.html");
             return null;
@@ -332,6 +380,7 @@ public class Main {
 
         get("/api/istituti", ServiceRegistry.get(IstitutoController.class)::getAll);
         get("/api/istituti/:id", ServiceRegistry.get(IstitutoController.class)::getById);
+        get("api/istituti/:istitutoId/macchine", ServiceRegistry.get(MacchinaController.class)::getByIstituto);
 
         get("/api/bevande", bevandaController::getAll);
         get("/api/bevande/:id", bevandaController::getById);
@@ -546,16 +595,42 @@ public class Main {
                     return bevandaController.rimuoviCialda(req, res);
                 });
             });
+            
+            path("/transazioni", () -> {
+                get("", (req, res) -> {
+                    // Recupera tutte le transazioni
+                    return ServiceRegistry.get(TransazioneController.class).getAllTransazioni(req, res);
+                });
+                
+                get("/:id", (req, res) -> {
+                    // Recupera una transazione specifica
+                    return ServiceRegistry.get(TransazioneController.class).getTransazioneById(req, res);
+                });
+                
+                get("/macchina/:macchinaId", (req, res) -> {
+                    // Recupera transazioni di una macchina
+                    return ServiceRegistry.get(TransazioneController.class).getTransazioniByMacchina(req, res);
+                });
+                
+                get("/recenti", (req, res) -> {
+                    // Recupera le transazioni più recenti
+                    return ServiceRegistry.get(TransazioneController.class).getTransazioniRecenti(req, res);
+                });
+                
+                post("", (req, res) -> {
+                    // Crea una nuova transazione
+                    return ServiceRegistry.get(TransazioneController.class).createTransazione(req, res);
+                });
+            });
         });
         
         // Manutenzioni
         path("/api/manutenzione", () -> {
+        	
         	// Verifica autenticazione
         	before("/*", authMiddleware::autenticazione);
-
         	// Ottieni tutte le manutenzioni
-        	get("", (req, res) -> {
-        		return manutenzioneController.getManutenzioni(req, res);
+        	get("", manutenzioneController::getManutenzioni);
         	});
 
         	// Ottieni manutenzioni per istituto
@@ -646,7 +721,6 @@ public class Main {
         			return gson.toJson(Map.of("error", "Errore durante l'impostazione della manutenzione come fuori servizio: " + e.getMessage()));
         		}
         	});
-        });
 
         // Setup MQTT topics
         setupMQTTTopics();
@@ -664,6 +738,7 @@ public class Main {
                 }
             }).start();
             res.type("application/json");
+            
             return gson.toJson(Map.of("message", "Spegnimento del sistema in corso...", "status", "success"));
         });
 
@@ -710,7 +785,7 @@ public class Main {
 
         // Topic per le operazioni utente
         mqttClient.subscribe("macchine/+/cassa/#", (topic, message) -> {
-        	logger.debug("RICEVUTO MESSAGGIO CASSA: Topic={}, Payload={}", topic, message);
+        	logger.info("RICEVUTO MESSAGGIO CASSA: Topic={}, Payload={}", topic, message);
             String[] parts = topic.split("/");
             //CHECK PER ZUCCHERO DA FARE
             if (parts.length >= 4) {
@@ -981,11 +1056,10 @@ public class Main {
         macchineAttive.clear();
 
         try {
-            if (mqttClient != null) {
-                mqttClient.disconnect();
-            }
+            // Disconnetti tutti i client MQTT tramite il manager
+            MQTTBrokerManager.getInstance().disconnectAll();
         } catch (Exception e) {
-            logger.error("Errore durante la disconnessione del client MQTT", e);
+            logger.error("Errore durante la disconnessione dei client MQTT", e);
         }
 
         logger.info("Spegnimento completato");

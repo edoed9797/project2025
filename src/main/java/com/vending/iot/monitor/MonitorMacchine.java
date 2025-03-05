@@ -15,6 +15,8 @@ public class MonitorMacchine {
 
     public MonitorMacchine() throws MqttException {
         this.statiMacchine = new ConcurrentHashMap<>();
+        
+        // Utilizza il broker manager per ottenere il client MQTT
         this.mqttClient = new MQTTClient("monitor_macchine");
         this.alertManager = new AlertManager(mqttClient);
         this.gson = new Gson();

@@ -144,8 +144,12 @@
         <header class="mb-8">
             <div class="flex justify-between items-center">
                 <h1 class="text-2xl font-bold">Distributore Automatico <span id="machineNumber" class="text-blue-600"></span></h1>
+                <div class="nav-brand">
+                    <a class="btn btn-primary" href="/index.html">Torna alla Home</a>
+                </div>
                 <div id="statusIndicator" class="status-indicator status-unknown">
                     <div class="w-3 h-3 rounded-full bg-current"></div>
+
                     <span class="status-text">Stato Sconosciuto</span>
                 </div>
             </div>
@@ -240,7 +244,7 @@
         const MQTT_CONFIG = {
         	    host: 'localhost',
         	    port: 9002,  // Porta WebSocket
-        	    useSSL: false,
+        	    useSSL: true,
         	    username: '20019309',
         	    password: 'Pissir2024!',
         	    keepAliveInterval: 30,
@@ -391,8 +395,8 @@
 		    
 		    // Costruzione corretta dell'URL WebSocket
 		    const wsUrl = MQTT_CONFIG.useSSL ? 
-		        `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt` : 
-		        `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt`;
+		        `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
+		        `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
 		
 		    try {
 		        // Crea il client MQTT
@@ -404,7 +408,6 @@
 		
 		        // Configura le opzioni di connessione
 		        const connectOptions = {
-		            useSSL: true,
 		            userName: MQTT_CONFIG.username,
 		            password: MQTT_CONFIG.password,
 		            keepAliveInterval: MQTT_CONFIG.keepAliveInterval,

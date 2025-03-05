@@ -41,6 +41,8 @@ public class BevandaController {
             res.type("application/json");
             return gson.toJson(bevande);
         } catch (Exception e) {
+            e.printStackTrace(); // Per debugging
+            System.err.println("Errore dettagliato: " + e.getMessage());
             res.status(500);
             return gson.toJson(Map.of("errore", "Errore nel recupero delle bevande: " + e.getMessage()));
         }
