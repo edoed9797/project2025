@@ -6,8 +6,9 @@
     <title>Monitoraggio IoT - Distributori</title>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
-    <!-- MQTT.js client -->
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
+    <!-- Paho MQTT client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body class="bg-gray-100">
     <!-- Header -->
@@ -37,7 +38,7 @@
                     </div>
                     <div class="flex items-center">
                         <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
-                        <span>Errori: <span id="errorCount">0</span></span>
+                        <span>Fuori Servizio: <span id="errorCount">0</span></span>
                     </div>
                 </div>
             </div>
@@ -58,73 +59,206 @@
     </div>
 
     <script>
-        // Configuration
+        // Configurazione
+        const API_BASE_URL = 'https://localhost:8443/api';
         const MQTT_CONFIG = {
             host: 'localhost',
-            port: 8883,
-            protocol: 'wss',
-            path: '/mqtt',
+            port: 9002,  // Porta WebSocket
+            useSSL: true,
             username: '20019309',
-            password: 'Pissir2024!'
+            password: 'Pissir2024!',
+            keepAliveInterval: 30,
+            cleanSession: true,
         };
 
-        // State
+        // Stato
         let machines = {};
         let alerts = [];
         let client = null;
+        let statusCounts = { 1: 0, 2: 0, 3: 0 }; // 1=Attiva, 2=Manutenzione, 3=Fuori Servizio
 
-        // Initialize MQTT Connection
+        // Funzioni di utility per l'autenticazione
+        const AuthUtils = {
+            async ensureAuthToken() {
+                let token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    token = await this.generateAnonymousToken();
+                    localStorage.setItem('jwt_token', token);
+                    localStorage.setItem('userRole', 'anonymous');
+                }
+                return token;
+            },
+
+            async generateAnonymousToken() {
+                try {
+                    const response = await axios.post(`${API_BASE_URL}/auth/anonymous`);
+                    return response.data.token;
+                } catch (error) {
+                    console.error('Errore nella generazione del token anonimo:', error);
+                    return null;
+                }
+            },
+
+            getAuthHeaders() {
+                const token = localStorage.getItem('jwt_token');
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                };
+            }
+        };
+
+        // Inizializza MQTT Connection
         function initMQTT() {
             const clientId = 'dashboard_' + Math.random().toString(16).substring(2, 8);
-            const connectUrl = `${MQTT_CONFIG.protocol}://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}${MQTT_CONFIG.path}`;
+            
+            // Costruzione corretta dell'URL WebSocket
+            const wsUrl = MQTT_CONFIG.useSSL ? 
+                `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
+                `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
+            
+            try {
+                // Crea il client MQTT
+                client = new Paho.MQTT.Client(wsUrl, clientId);
+                
+                // Configura i callback
+                client.onConnectionLost = onConnectionLost;
+                client.onMessageArrived = onMessageArrived;
+                
+                // Configura le opzioni di connessione
+                const connectOptions = {
+                    userName: MQTT_CONFIG.username,
+                    password: MQTT_CONFIG.password,
+                    keepAliveInterval: MQTT_CONFIG.keepAliveInterval,
+                    cleanSession: MQTT_CONFIG.cleanSession,
+                    onSuccess: onConnect,
+                    onFailure: onConnectFailure,
+                    timeout: 3
+                };
+                
+                console.log('Tentativo di connessione MQTT:', {
+                    url: wsUrl,
+                    clientId: clientId,
+                    useSSL: MQTT_CONFIG.useSSL,
+                    port: MQTT_CONFIG.port
+                });
+                
+                // Connetti il client
+                client.connect(connectOptions);
+            } catch (error) {
+                console.error('Errore nella creazione del client MQTT:', error);
+                updateMQTTStatus('error');
+                
+                // Riprova la connessione dopo un ritardo
+                setTimeout(() => {
+                    console.log('Ritento connessione MQTT...');
+                    initMQTT();
+                }, 3000);
+            }
+        }
 
-            client = mqtt.connect(connectUrl, {
-                clientId,
-                clean: true,
-                username: MQTT_CONFIG.username,
-                password: MQTT_CONFIG.password,
-                rejectUnauthorized: false
-            });
-
-            client.on('connect', onConnect);
-            client.on('message', onMessage);
-            client.on('error', onError);
-            client.on('close', onClose);
+        // Carica dati iniziali dalle API
+        async function loadInitialData() {
+            try {
+                await AuthUtils.ensureAuthToken();
+                
+                // Recupera l'elenco delle macchine
+                const response = await axios.get(
+                    `${API_BASE_URL}/macchine`, 
+                    { headers: AuthUtils.getAuthHeaders() }
+                );
+                
+                const machinesList = response.data;
+                console.log('Macchine caricate:', machinesList);
+                
+                // Inizializza lo stato per ciascuna macchina
+                machinesList.forEach(machine => {
+                    machines[machine.id] = {
+                        id: machine.id,
+                        statoId: machine.statoId,
+                        creditoAttuale: machine.creditoAttuale || 0,
+                        cassaAttuale: machine.cassaAttuale || 0,
+                        cassaMassima: machine.cassaMassima || 100,
+                        lastUpdate: new Date().toISOString(),
+                        istitutoId: machine.istitutoId,
+                        nomeIstituto: machine.nomeIstituto || 'Sconosciuto'
+                    };
+                    
+                    updateMachineCard(machine.id);
+                });
+                
+                updateStatusCounts();
+            } catch (error) {
+                console.error('Errore nel caricamento dei dati iniziali:', error);
+            }
         }
 
         // MQTT Event Handlers
         function onConnect() {
             updateMQTTStatus('connected');
             
-            // Subscribe to topics
+            // Sottoscrizione ai topic
             client.subscribe('macchine/+/stato');
-            client.subscribe('macchine/+/allarmi');
-            client.subscribe('macchine/+/manutenzione');
+            client.subscribe('macchine/+/eventi');
+            client.subscribe('macchine/+/cassa/stato/risposta');
+            client.subscribe('macchine/+/bevande/stato/risposta');
             
-            console.log('Connected to MQTT broker');
+            console.log('Connesso al broker MQTT');
         }
 
-        function onMessage(topic, message) {
-            const payload = JSON.parse(message.toString());
-            const topicParts = topic.split('/');
-            const machineId = topicParts[1];
+        function onConnectFailure(error) {
+            console.error('Errore di connessione MQTT:', error);
+            updateMQTTStatus('error');
+            
+            // Implementa backoff esponenziale per i tentativi
+            setTimeout(() => {
+                console.log('Ritento connessione MQTT...');
+                initMQTT();
+            }, 5000);
+        }
 
-            if (topic.endsWith('/stato')) {
-                updateMachineStatus(machineId, payload);
-            } else if (topic.endsWith('/allarmi')) {
-                handleAlert(machineId, payload);
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log('Connessione MQTT persa:', responseObject.errorMessage);
+                updateMQTTStatus('disconnected');
+                
+                // Riprova la connessione dopo un ritardo
+                setTimeout(() => {
+                    console.log('Ritento connessione MQTT...');
+                    initMQTT();
+                }, 5000);
             }
         }
 
-        function onError(error) {
-            console.error('MQTT Error:', error);
-            updateMQTTStatus('error');
-        }
-
-        function onClose() {
-            updateMQTTStatus('disconnected');
-            // Attempt to reconnect after 5 seconds
-            setTimeout(initMQTT, 5000);
+        function onMessageArrived(message) {
+            try {
+                const topic = message.destinationName;
+                const topicParts = topic.split('/');
+                const machineId = parseInt(topicParts[1]);
+                
+                let payload;
+                try {
+                    payload = JSON.parse(message.payloadString);
+                } catch (e) {
+                    payload = message.payloadString;
+                }
+                
+                console.log(`Messaggio ricevuto da ${topic}:`, payload);
+                
+                if (topic.endsWith('/stato')) {
+                    updateMachineStatus(machineId, payload);
+                } else if (topic.endsWith('/eventi')) {
+                    handleAlert(machineId, payload);
+                } else if (topic.endsWith('/stato/risposta')) {
+                    if (topic.includes('/cassa/')) {
+                        updateMachineCashStatus(machineId, payload);
+                    } else if (topic.includes('/bevande/')) {
+                        updateMachineBeverageStatus(machineId, payload);
+                    }
+                }
+            } catch (error) {
+                console.error('Errore nell\'elaborazione del messaggio:', error);
+            }
         }
 
         // UI Update Functions
@@ -149,36 +283,108 @@
         }
 
         function updateMachineStatus(machineId, status) {
-            machines[machineId] = status;
-            updateMachineCard(machineId);
-            updateStatusCounts();
+            // Aggiorna solo se abbiamo già un record per questa macchina
+            if (machines[machineId]) {
+                // Se status è un oggetto con stato, aggiorna lo statoId
+                if (status && typeof status === 'object' && status.stato !== undefined) {
+                    machines[machineId].statoId = status.stato;
+                }
+                
+                // Aggiorna il timestamp
+                machines[machineId].lastUpdate = new Date().toISOString();
+                
+                // Aggiorna la UI
+                updateMachineCard(machineId);
+                updateStatusCounts();
+            }
+        }
+
+        function updateMachineCashStatus(machineId, status) {
+            if (machines[machineId] && status) {
+                if (typeof status === 'object') {
+                    // Aggiorna i dati della cassa
+                    if (status.cassaAttuale !== undefined) {
+                        machines[machineId].cassaAttuale = status.cassaAttuale;
+                    }
+                    if (status.creditoAttuale !== undefined) {
+                        machines[machineId].creditoAttuale = status.creditoAttuale;
+                    }
+                }
+                
+                // Aggiorna la UI
+                updateMachineCard(machineId);
+            }
+        }
+
+        function updateMachineBeverageStatus(machineId, status) {
+            if (machines[machineId] && status) {
+                if (typeof status === 'object') {
+                    // Aggiorna i dati delle bevande/cialde
+                    if (status.cialde) {
+                        machines[machineId].cialde = status.cialde;
+                    }
+                }
+                
+                // Aggiorna la UI
+                updateMachineCard(machineId);
+            }
         }
 
         function updateMachineCard(machineId) {
             const machine = machines[machineId];
-            const existingCard = document.getElementById(`machine-${machineId}`);
+            if (!machine) return;
+            
+            // Calcola la percentuale di riempimento della cassa
+            const cashPercentage = machine.cassaMassima > 0 
+                ? Math.round((machine.cassaAttuale / machine.cassaMassima) * 100)
+                : 0;
+            
+            // Calcola lo stato delle cialde (se disponibile)
+            let podLevelHtml = '';
+            if (machine.cialde && Array.isArray(machine.cialde)) {
+                const totalPods = machine.cialde.reduce((sum, cialda) => sum + cialda.quantita, 0);
+                const maxPods = machine.cialde.reduce((sum, cialda) => sum + cialda.quantitaMassima, 0);
+                const podPercentage = maxPods > 0 ? Math.round((totalPods / maxPods) * 100) : 0;
+                
+                podLevelHtml = `
+                    <div class="flex items-center mt-2">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-green-600 h-2.5 rounded-full" style="width: ${podPercentage}%"></div>
+                        </div>
+                        <span class="ml-2">Cialde: ${podPercentage}%</span>
+                    </div>
+                `;
+            }
             
             const cardHTML = `
                 <div class="bg-white p-4 rounded-lg shadow">
                     <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-lg font-semibold">Macchina #${machineId}</h3>
-                        <span class="px-2 py-1 rounded-full text-sm ${getStatusClass(machine.status)}">
-                            ${getStatusText(machine.status)}
+                        <h3 class="text-lg font-semibold">Macchina #${machine.id}</h3>
+                        <span class="px-2 py-1 rounded-full text-sm ${getStatusClass(machine.statoId)}">
+                            ${getStatusText(machine.statoId)}
                         </span>
                     </div>
                     <div class="space-y-2">
+                        <p>${machine.nomeIstituto || 'Istituto non specificato'}</p>
                         <p>Ultima attività: ${new Date(machine.lastUpdate).toLocaleString()}</p>
                         <div class="flex items-center">
                             <div class="w-full bg-gray-200 rounded-full h-2.5">
-                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${machine.podLevel}%"></div>
+                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${cashPercentage}%"></div>
                             </div>
-                            <span class="ml-2">Cialde: ${machine.podLevel}%</span>
+                            <span class="ml-2">Cassa: ${cashPercentage}%</span>
                         </div>
-                        <p>Cassa: €${machine.cashLevel.toFixed(2)}</p>
+                        <p>Credito: €${machine.creditoAttuale ? machine.creditoAttuale.toFixed(2) : '0.00'}</p>
+                        ${podLevelHtml}
+                        <div class="mt-3 flex justify-end">
+                            <a href="/distributore.html?machine=${machine.id}" class="text-blue-500 hover:underline">
+                                <i class="fas fa-external-link-alt mr-1"></i> Dettagli
+                            </a>
+                        </div>
                     </div>
                 </div>
             `;
 
+            const existingCard = document.getElementById(`machine-${machineId}`);
             if (existingCard) {
                 existingCard.innerHTML = cardHTML;
             } else {
@@ -191,14 +397,24 @@
         }
 
         function handleAlert(machineId, alert) {
-            alerts.unshift({...alert, machineId});
-            alerts = alerts.slice(0, 10); // Keep only last 10 alerts
+            const timestamp = new Date().toISOString();
+            
+            const alertObj = {
+                machineId,
+                tipo: alert.tipo,
+                messaggio: alert.messaggio,
+                livello: alert.livello,
+                timestamp
+            };
+            
+            alerts.unshift(alertObj);
+            alerts = alerts.slice(0, 10); // Mantieni solo gli ultimi 10 allarmi
             updateAlertsList();
 
             // Desktop notification
             if (Notification.permission === 'granted') {
                 new Notification(`Allarme Macchina #${machineId}`, {
-                    body: alert.message,
+                    body: alert.messaggio,
                     icon: '/alert-icon.png'
                 });
             }
@@ -206,13 +422,18 @@
 
         function updateAlertsList() {
             const alertsList = document.getElementById('alertsList');
+            if (alerts.length === 0) {
+                alertsList.innerHTML = '<p class="text-gray-500">Nessun allarme recente</p>';
+                return;
+            }
+            
             alertsList.innerHTML = alerts.map(alert => `
-                <div class="border-l-4 ${getAlertClass(alert.severity)} p-4">
+                <div class="border-l-4 ${getAlertClass(alert.livello)} p-4">
                     <div class="flex items-center">
                         <i class="fas fa-exclamation-triangle mr-2"></i>
                         <div class="flex-1">
-                            <p class="font-bold">Macchina #${alert.machineId} - ${alert.type}</p>
-                            <p class="text-sm">${alert.message}</p>
+                            <p class="font-bold">Macchina #${alert.machineId} - ${alert.tipo}</p>
+                            <p class="text-sm">${alert.messaggio}</p>
                             <p class="text-xs text-gray-500 mt-1">
                                 ${new Date(alert.timestamp).toLocaleString()}
                             </p>
@@ -223,55 +444,96 @@
         }
 
         function updateStatusCounts() {
-            const counts = Object.values(machines).reduce((acc, machine) => {
-                acc[machine.status]++;
-                return acc;
-            }, { active: 0, maintenance: 0, error: 0 });
-
-            document.getElementById('activeCount').textContent = counts.active;
-            document.getElementById('maintenanceCount').textContent = counts.maintenance;
-            document.getElementById('errorCount').textContent = counts.error;
+            // Resetta i contatori
+            statusCounts = { 1: 0, 2: 0, 3: 0 };
+            
+            // Conta le macchine per ciascuno stato
+            Object.values(machines).forEach(machine => {
+                if (machine.statoId >= 1 && machine.statoId <= 3) {
+                    statusCounts[machine.statoId]++;
+                }
+            });
+            
+            // Aggiorna la UI
+            document.getElementById('activeCount').textContent = statusCounts[1];
+            document.getElementById('maintenanceCount').textContent = statusCounts[2];
+            document.getElementById('errorCount').textContent = statusCounts[3];
         }
 
         // Utility Functions
-        function getStatusClass(status) {
-            switch(status) {
-                case 'active': return 'bg-green-100 text-green-800';
-                case 'maintenance': return 'bg-yellow-100 text-yellow-800';
-                case 'error': return 'bg-red-100 text-red-800';
+        function getStatusClass(statoId) {
+            switch(statoId) {
+                case 1: return 'bg-green-100 text-green-800';
+                case 2: return 'bg-yellow-100 text-yellow-800';
+                case 3: return 'bg-red-100 text-red-800';
                 default: return 'bg-gray-100 text-gray-800';
             }
         }
 
-        function getStatusText(status) {
-            switch(status) {
-                case 'active': return 'Attiva';
-                case 'maintenance': return 'In Manutenzione';
-                case 'error': return 'Errore';
+        function getStatusText(statoId) {
+            switch(statoId) {
+                case 1: return 'Attiva';
+                case 2: return 'Manutenzione';
+                case 3: return 'Fuori Servizio';
                 default: return 'Sconosciuto';
             }
         }
 
-        function getAlertClass(severity) {
-            switch(severity) {
-                case 'error': return 'border-red-500 bg-red-50';
-                case 'warning': return 'border-yellow-500 bg-yellow-50';
-                case 'info': return 'border-blue-500 bg-blue-50';
+        function getAlertClass(livello) {
+            switch(livello) {
+                case 3: return 'border-red-500 bg-red-50';
+                case 2: return 'border-yellow-500 bg-yellow-50';
+                case 1: return 'border-blue-500 bg-blue-50';
                 default: return 'border-gray-500 bg-gray-50';
             }
         }
 
-        // Request desktop notification permission
+        // Richiedi permesso per le notifiche desktop
         function requestNotificationPermission() {
             if (Notification.permission !== 'granted') {
                 Notification.requestPermission();
             }
         }
 
-        // Initialize application
-        document.addEventListener('DOMContentLoaded', () => {
-            initMQTT();
-            requestNotificationPermission();
+        // Configurazione axios per la gestione degli errori di autenticazione
+        axios.interceptors.response.use(
+            response => response,
+            async error => {
+                if (error.response?.status === 401) {
+                    // Token scaduto o non valido
+                    localStorage.removeItem('jwt_token');
+                    await AuthUtils.ensureAuthToken();
+                    // Riprova la richiesta originale con il nuovo token
+                    const originalRequest = error.config;
+                    originalRequest.headers = AuthUtils.getAuthHeaders();
+                    return axios(originalRequest);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        // Inizializza applicazione
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await loadInitialData();
+                initMQTT();
+                requestNotificationPermission();
+                
+                // Aggiorna ciclicamente per mantenere i dati freschi
+                setInterval(async () => {
+                    if (client && client.isConnected()) {
+                        // Richiedi dati aggiornati solo per le macchine già presenti
+                        Object.keys(machines).forEach(machineId => {
+                            const topic = `macchine/${machineId}/stato`;
+                            const message = new Paho.MQTT.Message(JSON.stringify({ request: 'getStatus' }));
+                            message.destinationName = topic;
+                            client.send(message);
+                        });
+                    }
+                }, 30000); // Aggiorna ogni 30 secondi
+            } catch (error) {
+                console.error('Errore durante l\'inizializzazione dell\'applicazione:', error);
+            }
         });
     </script>
 </body>

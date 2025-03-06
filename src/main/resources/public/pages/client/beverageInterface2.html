@@ -1,0 +1,771 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Distributore Automatico - Selezione Bevande</title>
+    
+    <!-- Dipendenze esterne -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        .status-indicator {
+            padding: 0.5rem;
+            border-radius: 0.5rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .status-active {
+            background-color: #10B981;
+            color: white;
+        }
+
+        .status-maintenance {
+            background-color: #F59E0B;
+            color: white;
+        }
+
+        .status-error {
+            background-color: #EF4444;
+            color: white;
+        }
+
+        .status-unknown {
+            background-color: #6B7280;
+            color: white;
+        }
+
+        .beverage-card {
+            border: 2px solid #E5E7EB;
+            border-radius: 0.5rem;
+            padding: 1rem;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .beverage-card:hover:not(.unavailable) {
+            border-color: #3B82F6;
+            transform: scale(1.02);
+        }
+
+        .beverage-card.selected {
+            border-color: #3B82F6;
+            background-color: #EFF6FF;
+        }
+
+        .beverage-card.unavailable {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .coin-btn {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            background-color: #F3F4F6;
+            transition: all 0.2s;
+        }
+
+        .coin-btn:hover:not(:disabled) {
+            background-color: #E5E7EB;
+            transform: scale(1.05);
+        }
+
+        .coin-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .sugar-btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            background-color: #F3F4F6;
+            transition: all 0.2s;
+        }
+
+        .sugar-btn.active {
+            background-color: #3B82F6;
+            color: white;
+        }
+
+        .alert {
+            position: fixed;
+            top: 1rem;
+            right: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background-color: #FEF2F2;
+            border: 1px solid #EF4444;
+            color: #B91C1C;
+            z-index: 50;
+            display: none;
+        }
+
+        .notification {
+            position: fixed;
+            bottom: 1rem;
+            right: 1rem;
+            padding: 1rem;
+            border-radius: 0.5rem;
+            background-color: #EFF6FF;
+            border: 1px solid #3B82F6;
+            color: #1E40AF;
+            z-index: 50;
+            display: none;
+        }
+
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 40;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <!-- Header -->
+        <header class="mb-8">
+            <div class="flex justify-between items-center">
+                <h1 class="text-2xl font-bold">Distributore Automatico <span id="machineNumber" class="text-blue-600"></span></h1>
+                <div class="nav-brand">
+                    <a class="btn btn-primary" href="/index.html">Torna alla Home</a>
+                </div>
+                <div id="statusIndicator" class="status-indicator status-unknown">
+                    <div class="w-3 h-3 rounded-full bg-current"></div>
+
+                    <span class="status-text">Stato Sconosciuto</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Contenuto principale -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-8">
+            <!-- Sezione Bevande -->
+            <div class="md:col-span-2">
+                <div id="categoriesTabs" class="flex gap-4 mb-6">
+                    <button class="tab-button px-4 py-2 rounded-lg bg-blue-600 text-white" data-category="all">Tutte</button>
+                    <button class="tab-button px-4 py-2 rounded-lg bg-gray-200" data-category="coffee">Caffè</button>
+                    <button class="tab-button px-4 py-2 rounded-lg bg-gray-200" data-category="hot">Bevande Calde</button>
+                </div>
+
+                <div id="beveragesList" class="grid grid-cols-2 md:grid-cols-3 gap-4">
+                    <!-- Le bevande verranno caricate dinamicamente -->
+                </div>
+            </div>
+
+            <!-- Pannello di Controllo -->
+            <div class="bg-white rounded-lg p-6 shadow-lg">
+                <!-- Sezione Credito -->
+                <div class="mb-8">
+                    <h2 class="text-xl font-semibold mb-4">Credito Inserito</h2>
+                    <div class="text-3xl font-bold text-blue-600 mb-4">
+                        € <span id="currentCredit">0.00</span>
+                    </div>
+
+                    <!-- Monete -->
+                    <div class="grid grid-cols-3 gap-4">
+                        <button class="coin-btn" data-value="0.10">€0,10</button>
+                        <button class="coin-btn" data-value="0.20">€0,20</button>
+                        <button class="coin-btn" data-value="0.50">€0,50</button>
+                        <button class="coin-btn" data-value="1.00">€1,00</button>
+                        <button class="coin-btn" data-value="2.00">€2,00</button>
+                    </div>
+                </div>
+
+                <!-- Opzioni Personalizzazione -->
+                <div id="customizationOptions" class="mb-8 hidden">
+                    <div id="sugarControl" class="flex flex-col gap-2">
+                        <label class="text-sm text-gray-600">Zucchero</label>
+                        <div class="flex gap-2">
+                            <button class="sugar-btn" data-level="0">No</button>
+                            <button class="sugar-btn" data-level="1">Poco</button>
+                            <button class="sugar-btn active" data-level="2">Medio</button>
+                            <button class="sugar-btn" data-level="3">Molto</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Pulsanti Azione -->
+                <div class="flex gap-4">
+                    <button id="dispenseButton" 
+                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled>
+                        Eroga
+                    </button>
+                    <button id="returnCreditButton" 
+                            class="px-6 py-3 bg-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                            disabled>
+                        Resto
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Erogazione -->
+    <div id="dispensingOverlay" class="overlay hidden">
+        <div class="bg-white p-8 rounded-lg text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4 mx-auto"></div>
+            <h3 class="text-xl font-bold mb-4">Erogazione in Corso</h3>
+            <p id="dispensingStatus" class="text-gray-600">Preparazione bevanda...</p>
+        </div>
+    </div>
+
+    <!-- Alert -->
+    <div id="alertBox" class="alert">
+        <p id="alertMessage"></p>
+    </div>
+
+    <!-- Notification -->
+    <div id="notificationBox" class="notification">
+        <p id="notificationMessage"></p>
+    </div>
+
+    <script>
+        // Configurazione
+        const API_BASE_URL = 'https://localhost:8443/api';
+        const MQTT_CONFIG = {
+            host: 'localhost',
+            port: 9002,  // Porta WebSocket
+            useSSL: true,
+            username: '20019309',
+            password: 'Pissir2024!',
+            keepAliveInterval: 30,
+            cleanSession: true,
+        };
+
+        // Stato dell'applicazione - verrà inizializzato dai dati della macchina
+        let machineState = {
+            id: null,
+            cassaAttuale: 0,
+            cassaMassima: 0,
+            stato: 1,
+            creditoAttuale: 0,
+            bevande: [],
+            cialde: []
+        };
+
+        let currentMachineId = null;
+        let client = null;
+        let currentCredit = 0;
+        let selectedBeverage = null;
+        let sugarLevel = 2;
+        let isInitialStateReceived = false;
+
+        // Riferimenti DOM
+        const elements = {
+            machineNumber: document.getElementById('machineNumber'),
+            statusIndicator: document.getElementById('statusIndicator'),
+            currentCredit: document.getElementById('currentCredit'),
+            beveragesList: document.getElementById('beveragesList'),
+            dispenseButton: document.getElementById('dispenseButton'),
+            returnCreditButton: document.getElementById('returnCreditButton'),
+            dispensingOverlay: document.getElementById('dispensingOverlay'),
+            dispensingStatus: document.getElementById('dispensingStatus'),
+            alertBox: document.getElementById('alertBox'),
+            alertMessage: document.getElementById('alertMessage'),
+            notificationBox: document.getElementById('notificationBox'),
+            notificationMessage: document.getElementById('notificationMessage')
+        };
+
+        // Topic MQTT - verranno aggiornati con l'ID corretto
+        const MQTT_TOPICS = {
+            MACHINE_STATUS: 'macchine/${machineId}/stato',
+            CASH_INSERT: 'macchine/${machineId}/cassa/inserimentoCredito', 
+            CASH_RETURN: 'macchine/${machineId}/cassa/richiestaResto',      
+            CASH_STATUS: 'macchine/${machineId}/cassa/stato/risposta',
+            BEVERAGE_REQUEST: 'macchine/${machineId}/cassa/richiestaBevanda',
+            BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato',
+            MAINTENANCE: 'macchine/${machineId}/manutenzione/stato',
+            ALERTS: 'macchine/${machineId}/eventi' 
+        };
+        
+        // Funzioni di utility per l'autenticazione
+        const AuthUtils = {
+            async ensureAuthToken() {
+                let token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    token = await this.generateAnonymousToken();
+                    localStorage.setItem('jwt_token', token);
+                    localStorage.setItem('userRole', 'anonymous');
+                }
+                return token;
+            },
+
+            async generateAnonymousToken() {
+                try {
+                    const response = await axios.post(`${API_BASE_URL}/auth/anonymous`);
+                    return response.data.token;
+                } catch (error) {
+                    console.error('Errore nella generazione del token anonimo:', error);
+                    return null;
+                }
+            },
+
+            getAuthHeaders() {
+                const token = localStorage.getItem('jwt_token');
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                };
+            }
+        };
+
+        // Funzione per ottenere l'ID della macchina dalla URL
+        function getMachineIdFromUrl() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('machine');
+            if (!id) {
+                showAlert('ID macchina non specificato');
+                return null;
+            }
+            return parseInt(id);
+        }
+
+        // Funzione per inizializzare lo stato della macchina
+        async function initializeMachineState() {
+            try {
+                // Ottiene l'ID dalla URL
+                currentMachineId = getMachineIdFromUrl();
+                if (!currentMachineId) {
+                    throw new Error('ID macchina non valido');
+                }
+                
+                await AuthUtils.ensureAuthToken();
+                
+                // Aggiorna l'ID nei topic MQTT
+                Object.keys(MQTT_TOPICS).forEach(key => {
+                    MQTT_TOPICS[key] = MQTT_TOPICS[key].replace('${machineId}', currentMachineId);
+                });
+
+                // Recupera i dati della macchina
+                const response = await axios.get(
+                    `${API_BASE_URL}/macchine/${currentMachineId}`,
+                    { headers: AuthUtils.getAuthHeaders() }
+                );
+                const machineData = response.data;
+
+                // Inizializza lo stato della macchina
+                machineState = {
+                    id: machineData.id,
+                    cassaAttuale: machineData.cassaAttuale,
+                    cassaMassima: machineData.cassaMassima,
+                    stato: machineData.statoId,
+                    creditoAttuale: machineData.creditoAttuale || 0,
+                    bevande: machineData.bevande || [],
+                    cialde: machineData.cialde || []
+                };
+
+                // Aggiorna l'interfaccia
+                elements.machineNumber.textContent = `#${machineState.id}`;
+                updateMachineStatus(machineState.stato);
+                updateCreditDisplay();
+                
+                // Carica le bevande disponibili
+                await loadBeverages();
+
+                // Inizia la connessione MQTT
+                initializeMQTT();
+
+            } catch (error) {
+                console.error('Errore nell\'inizializzazione della macchina:', error);
+                showAlert('Errore nel caricamento dei dati della macchina');
+            }
+        }
+
+        // Inizializzazione MQTT
+        function initializeMQTT() {
+            const clientId = 'web_client_' + Math.random().toString(16).substr(2, 8);
+            
+            // Costruzione corretta dell'URL WebSocket
+            const wsUrl = MQTT_CONFIG.useSSL ? 
+                `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
+                `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
+        
+            try {
+                // Crea il client MQTT
+                client = new Paho.MQTT.Client(wsUrl, clientId);
+        
+                // Configura i callback
+                client.onConnectionLost = onConnectionLost;
+                client.onMessageArrived = onMessageArrived;
+        
+                // Configura le opzioni di connessione
+                const connectOptions = {
+                    userName: MQTT_CONFIG.username,
+                    password: MQTT_CONFIG.password,
+                    keepAliveInterval: MQTT_CONFIG.keepAliveInterval,
+                    cleanSession: MQTT_CONFIG.cleanSession,
+                    onSuccess: onConnect,
+                    onFailure: onConnectFailure,
+                    timeout: 3
+                };
+        
+                // Debug logging
+                console.log('Tentativo di connessione MQTT:', {
+                    url: wsUrl,
+                    clientId: clientId,
+                    useSSL: MQTT_CONFIG.useSSL,
+                    port: MQTT_CONFIG.port
+                });
+        
+                // Connetti il client
+                client.connect(connectOptions);
+        
+            } catch (error) {
+                console.error('Errore nella creazione del client MQTT:', error);
+                // Riprova la connessione dopo un ritardo
+                setTimeout(() => {
+                    console.log('Ritento connessione MQTT...');
+                    initializeMQTT();
+                }, 3000);
+            }
+        }
+
+        function onConnect() {
+            showNotification('Connesso al sistema');
+            Object.values(MQTT_TOPICS).forEach(topic => {
+                client.subscribe(topic);
+            });
+            
+            // Richiedi lo stato iniziale della macchina solo una volta all'avvio
+            publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus' });
+            
+            // Richiedi lo stato della cassa solo una volta all'avvio
+            publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus' });
+        }
+
+        function onConnectFailure(error) {
+            console.error('Errore di connessione MQTT:', error);
+            showAlert(`Errore di connessione: ${error.errorMessage}`);
+            
+            // Implementa backoff esponenziale per i tentativi
+            let retryCount = 0;
+            const maxRetries = 5;
+
+            function retryConnection() {
+                if (retryCount >= maxRetries) {
+                    showAlert('Impossibile stabilire la connessione. Ricaricare la pagina.');
+                    return;
+                }
+
+                const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+                console.log(`Tentativo di riconnessione ${retryCount + 1}/${maxRetries} tra ${delay}ms`);
+
+                setTimeout(() => {
+                    retryCount++;
+                    initializeMQTT();
+                }, delay);
+            }
+
+            retryConnection();
+        }
+        
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log('Connessione MQTT persa:', responseObject.errorMessage);
+                showAlert('Connessione al server persa. Tentativo di riconnessione...');
+                handleReconnect();
+            }
+        }
+
+        function onMessageArrived(message) {
+            try {
+                const topic = message.destinationName;
+                let payload;
+                
+                try {
+                    payload = JSON.parse(message.payloadString);
+                } catch (parseError) {
+                    console.warn("Messaggio non in formato JSON:", message.payloadString);
+                    // Se non è JSON, usa il testo grezzo (potrebbe essere un numero)
+                    payload = message.payloadString;
+                }
+                
+                // Log tutti i messaggi eccetto quelli di polling
+                if (!topic.includes('getStatus')) {
+                    console.log("Messaggio ricevuto:", topic, payload);
+                }
+                
+                switch (topic) {
+                    case MQTT_TOPICS.MACHINE_STATUS:
+                        handleMachineStatus(payload);
+                        break;
+                    case MQTT_TOPICS.CASH_STATUS:
+                        handleCashStatus(payload);
+                        break;
+                    case MQTT_TOPICS.BEVERAGE_STATUS:
+                        handleBeverageStatus(payload);
+                        break;
+                    case MQTT_TOPICS.ALERTS:
+                        handleAlerts(payload);
+                        break;
+                    default:
+                        // Non loggare messaggi non gestiti
+                        break;
+                }
+            } catch (error) {
+                console.error('Errore nel processamento del messaggio:', error);
+            }
+        }
+        
+        function handleReconnect() {
+            console.log('Tentativo di riconnessione MQTT...');
+            setTimeout(() => {
+                try {
+                    initializeMQTT();
+                } catch (error) {
+                    console.error('Errore durante la riconnessione:', error);
+                    handleReconnect();
+                }
+            }, 3000);
+        }
+
+        // Gestori dei messaggi MQTT
+        function handleMachineStatus(status) {
+            // Aggiorna lo stato della macchina solo se abbiamo dati validi
+            if (status && typeof status === 'object' && !status.request) {
+                machineState = { ...machineState, ...status };
+                updateMachineStatus(machineState.stato);
+                updateUIBasedOnMachineState();
+                
+                if (status.cassaAttuale / status.cassaMassima > 0.9) {
+                    publishMessage(MQTT_TOPICS.ALERTS, {
+                        tipo: 'CASSA_PIENA',
+                        messaggio: 'Necessario svuotamento cassa',
+                        livello: 2
+                    });
+                }
+            }
+        }
+        
+        function handleCashStatus(status) {
+            // Ignora le richieste di status
+            if (status && typeof status === 'object' && status.request) {
+                return;
+            }
+            
+            // Verifica se status è una stringa (potrebbe essere un valore numerico diretto)
+            if (typeof status === 'string' && !isNaN(parseFloat(status))) {
+                currentCredit = parseFloat(status);
+            } 
+            // Verifica se è un oggetto con la proprietà creditoAttuale
+            else if (status && typeof status === 'object' && 'creditoAttuale' in status) {
+                currentCredit = status.creditoAttuale;
+            }
+            
+            // Assicura che currentCredit sia un numero
+            if (currentCredit === undefined || isNaN(currentCredit)) {
+                currentCredit = 0;
+                console.warn("Credito non valido, impostato a 0");
+            }
+            
+            updateCreditDisplay();
+            updateDispenseButtonState();
+            elements.returnCreditButton.disabled = currentCredit <= 0;
+        }
+
+        function handleBeverageStatus(status) {
+            if (status.completed) {
+                elements.dispensingOverlay.classList.add('hidden');
+                resetSelection();
+                showNotification('Bevanda erogata con successo!');
+                
+                // Richiedi aggiornamento dello stato dopo l'erogazione
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus' });
+                publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus' });
+            } else if (status.error) {
+                elements.dispensingOverlay.classList.add('hidden');
+                showAlert(`Errore: ${status.error}`);
+                
+                // Richiedi aggiornamento anche in caso di errore
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus' });
+                publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus' });
+            }
+        }
+
+        function handleAlerts(alert) {
+            switch(alert.tipo) {
+                case 'CASSA_PIENA':
+                    showAlert('La cassa è quasi piena. Verrà chiamato un tecnico per lo svuotamento.');
+                    break;
+                case 'MANUTENZIONE_NECESSARIA':
+                    showAlert('È necessaria una manutenzione. Un tecnico verrà inviato presto.');
+                    break;
+                case 'CIALDE_ESAURITE':
+                    showAlert(`Cialde esaurite: ${alert.messaggio}`);
+                    break;
+            }
+        }
+
+        // Funzioni UI
+        function updateMachineStatus(statusId) {
+            const statusMap = {
+                1: { text: 'Attiva', class: 'status-active' },
+                2: { text: 'Manutenzione', class: 'status-maintenance' },
+                3: { text: 'Fuori Servizio', class: 'status-error' }
+            };
+
+            const status = statusMap[statusId] || { text: 'Sconosciuto', class: 'status-unknown' };
+            elements.statusIndicator.className = `status-indicator ${status.class}`;
+            elements.statusIndicator.querySelector('.status-text').textContent = status.text;
+        }
+
+        function updateUIBasedOnMachineState() {
+            const isActive = machineState.stato === 1;
+            document.querySelectorAll('.coin-btn').forEach(btn => {
+                btn.disabled = !isActive;
+            });
+            elements.dispenseButton.disabled = !isActive || !selectedBeverage || currentCredit < (selectedBeverage?.price || 0);
+            elements.returnCreditButton.disabled = !isActive || currentCredit <= 0;
+        }
+
+        function updateCreditDisplay() {
+            // Assicurati che currentCredit sia un numero
+            let creditToDisplay = 0;
+            
+            if (typeof currentCredit === 'number' && !isNaN(currentCredit)) {
+                creditToDisplay = currentCredit;
+            } else {
+                console.warn("Valore di credito non valido:", currentCredit);
+            }
+            
+            elements.currentCredit.textContent = creditToDisplay.toFixed(2);
+        }
+
+        function updateDispenseButtonState() {
+            elements.dispenseButton.disabled = !selectedBeverage || 
+                                            currentCredit < (selectedBeverage?.price || 0) || 
+                                            machineState.stato !== 1;
+        }
+
+        function showAlert(message) {
+            elements.alertMessage.textContent = message;
+            elements.alertBox.style.display = 'block';
+            setTimeout(() => {
+                elements.alertBox.style.display = 'none';
+            }, 5000);
+        }
+
+        function showNotification(message) {
+            elements.notificationMessage.textContent = message;
+            elements.notificationBox.style.display = 'block';
+            setTimeout(() => {
+                elements.notificationBox.style.display = 'none';
+            }, 3000);
+        }
+
+        function handleCoinInsertion(value) {
+            if (machineState.cassaAttuale + currentCredit + value > machineState.cassaMassima) {
+                showAlert('Impossibile accettare monete. Cassa quasi piena.');
+                return;
+            }
+
+            console.log("Inserimento moneta:", value);
+            
+            // Aggiorna il credito lato client per feedback immediato
+            currentCredit += value;
+            updateCreditDisplay();
+            updateDispenseButtonState();
+            elements.returnCreditButton.disabled = currentCredit <= 0;
+            
+            // Pubblica il messaggio MQTT - Converti esplicitamente il valore in stringa
+            const valueStr = value.toString();
+            const mqttMessage = new Paho.MQTT.Message(valueStr);
+            mqttMessage.destinationName = MQTT_TOPICS.CASH_INSERT;
+            client.send(mqttMessage);
+        }
+
+        function handleCreditReturn() {
+            if (currentCredit <= 0) return;
+            
+            const creditToReturn = currentCredit;
+            publishMessage(MQTT_TOPICS.CASH_RETURN, currentCredit);
+            
+            // Mostra subito un messaggio con il credito restituito
+            showNotification(`Restituiti € ${creditToReturn.toFixed(2)}`);
+            
+            // Aggiorna immediatamente l'UI
+            currentCredit = 0;
+            updateCreditDisplay();
+            updateDispenseButtonState();
+            elements.returnCreditButton.disabled = true;
+            
+            // Richiedi aggiornamento dello stato della macchina dopo la restituzione
+            setTimeout(() => {
+                publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus' });
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus' });
+            }, 500);
+        }
+
+        function handleBeverageRequest() {
+            if (!selectedBeverage || currentCredit < selectedBeverage.price) return;
+            
+            // Richiedi lo stato della macchina prima dell'erogazione
+            publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus' });
+            
+            elements.dispensingOverlay.classList.remove('hidden');
+            publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
+                bevandaId: selectedBeverage.id,
+                importo: selectedBeverage.price,
+                zucchero: sugarLevel,
+                timestamp: Date.now()
+            });
+        }
+
+        // Funzioni di gestione delle bevande
+        function selectBeverage(beverageId, price, isAvailable) {
+            if (!isAvailable) return;
+            
+            selectedBeverage = { id: beverageId, price };
+            document.querySelectorAll('.beverage-card').forEach(card => {
+                card.classList.remove('selected');
+            });
+            document.querySelector(`.beverage-card[data-id="${beverageId}"]`).classList.add('selected');
+            document.getElementById('customizationOptions').classList.remove('hidden');
+            updateDispenseButtonState();
+        }
+
+        async function loadBeverages() {
+            try {
+                const response = await axios.get(
+                    `${API_BASE_URL}/macchine/${currentMachineId}/bevande`,
+                    { headers: AuthUtils.getAuthHeaders() }
+                );
+                machineState.bevande = response.data;
+                renderBeverages(machineState.bevande);
+            } catch (error) {
+                console.error('Errore nel caricamento delle bevande:', error);
+                showAlert('Errore nel caricamento delle bevande disponibili');
+            }
+        }
+
+        function renderBeverages(beverages) {
+            elements.beveragesList.innerHTML = beverages.map(beverage => `
+                <div class="beverage-card ${beverage.disponibile ? '' : 'unavailable'}" 
+                     data-id="${beverage.id}" 
+                     data-price="${beverage.prezzo}"
+                     onclick="selectBeverage(${beverage.id}, ${beverage.prezzo}, ${beverage.disponibile})">
+                    <h3 class="font-bold">${beverage.nome}</h3>
+                    <p class="text-gray-600">€${beverage.prezzo.toFixed(2)}</p>
+                    ${beverage.disponibile ? '' : '<p class="text-red-600">Non disponibile</p>'}
+                </div>
+            `).join('');
+        }
