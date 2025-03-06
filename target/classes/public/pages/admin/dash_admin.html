@@ -899,75 +899,134 @@ function getStatusClass (statoId) {
                     const scorteCialde = document.getElementById('scorteCialde');
                     scorteCialde.innerHTML = '';
 
+                    if (bevande.length === 0) {
+                        scorteCialde.innerHTML = '<div class="text-gray-500">Nessuna bevanda disponibile</div>';
+                        return;
+                    }
+
                     bevande.forEach(bevanda => {
-                        // Le cialde sono in un array all'interno della bevanda
-                        const cialdeInfo = bevanda.cialde ? 
-                            bevanda.cialde.map(c => `${c.nome}: ${c.quantitaDisponibile || 0}`).join(', ') : 
+                        // Verifichiamo che cialde sia un array prima di utilizzarlo
+                        const cialdeArray = Array.isArray(bevanda.cialde) ? bevanda.cialde : [];
+                        
+                        const cialdeInfo = cialdeArray.length > 0 ? 
+                            cialdeArray.map(c => `${c.nome || 'Cialda #' + c.id}: ${c.quantita || 0}/${c.quantitaMassima || 0}`).join(', ') : 
                             'Nessuna cialda';
                         
                         const div = document.createElement('div');
-                        div.className = 'mb-2';
+                        div.className = 'p-3 border-b mb-2';
                         div.innerHTML = `
-                            <span class="font-medium">${bevanda.nome}</span>: 
-                            <span class="text-gray-600">${cialdeInfo}</span>
+                            <div class="flex justify-between">
+                                <span class="font-medium">${bevanda.nome}</span>
+                                <span class="text-blue-600">€${bevanda.prezzo ? bevanda.prezzo.toFixed(2) : '0.00'}</span>
+                            </div>
+                            <div class="text-gray-600 text-sm">${cialdeInfo}</div>
                         `;
                         scorteCialde.appendChild(div);
                     });
                 })
                 .catch(error => {
                     console.error('Error loading bevande:', error);
-                    alert('Errore nel caricamento delle scorte di cialde');
+                    const scorteCialde = document.getElementById('scorteCialde');
+                    scorteCialde.innerHTML = '<div class="text-red-500">Errore nel caricamento delle bevande</div>';
                 });
-
-            // Carica le macchine che necessitano di rifornimento
+             // Carica le macchine che necessitano di rifornimento
             axios.get(`${API_BASE_URL}/manutenzione`)
                 .then(response => {
-                    const manutenzioni = response.data;
+                    const manutenzioni = response.data || [];
                     const rifornimentiList = document.getElementById('rifornimentiList');
                     rifornimentiList.innerHTML = '';
 
-                    // Filtra solo le manutenzioni di tipo RIFORNIMENTO_CIALDE
-                    const rifornimenti = manutenzioni.filter(m => m.tipoIntervento === "RIFORNIMENTO_CIALDE");
+                    // Verifichiamo che manutenzioni sia un array valido
+                    if (!Array.isArray(manutenzioni) || manutenzioni.length === 0) {
+                        rifornimentiList.innerHTML = '<div class="text-gray-500">Nessun rifornimento necessario</div>';
+                        return;
+                    }
+
+                    // Filtra solo le manutenzioni di tipo RIFORNIMENTO_CIALDE o simili
+                    const rifornimenti = manutenzioni.filter(m => 
+                        m.tipoIntervento && 
+                        (m.tipoIntervento.includes('RIFORNIMENTO') || m.tipoIntervento.includes('CIALDA'))
+                    );
+                    
+                    if (rifornimenti.length === 0) {
+                        rifornimentiList.innerHTML = '<div class="text-gray-500">Nessun rifornimento necessario</div>';
+                        return;
+                    }
                     
                     rifornimenti.forEach(rifornimento => {
                         const div = document.createElement('div');
-                        div.className = 'mb-2';
+                        div.className = 'p-3 border-b mb-2';
+                        const urgenzaClass = rifornimento.urgenza === 'ALTA' ? 'text-red-600' : 
+                                        rifornimento.urgenza === 'MEDIA' ? 'text-yellow-600' : 'text-blue-600';
+                        
                         div.innerHTML = `
-                            <span class="font-medium">Macchina #${rifornimento.macchinaId}</span>: 
-                            <span class="text-gray-600">${rifornimento.descrizione}</span>
-                            <span class="text-sm text-blue-600">Urgenza: ${rifornimento.urgenza}</span>
+                            <div class="flex justify-between">
+                                <span class="font-medium">Macchina #${rifornimento.macchinaId}</span>
+                                <span class="${urgenzaClass}">Urgenza: ${rifornimento.urgenza || 'BASSA'}</span>
+                            </div>
+                            <div class="text-gray-600">${rifornimento.descrizione || 'Rifornimento cialde'}</div>
+                            <div class="text-xs text-gray-500 mt-1">
+                                Richiesta: ${new Date(rifornimento.dataRichiesta || Date.now()).toLocaleString()}
+                            </div>
                         `;
                         rifornimentiList.appendChild(div);
                     });
                 })
                 .catch(error => {
                     console.error('Error loading rifornimenti:', error);
-                    alert('Errore nel caricamento dei rifornimenti necessari');
+                    const rifornimentiList = document.getElementById('rifornimentiList');
+                    rifornimentiList.innerHTML = '<div class="text-red-500">Errore nel caricamento dei rifornimenti</div>';
                 });
         }
         
+        // Correzione per la funzione loadFinanze()
         function loadFinanze() {
-            // Carica i ricavi totali per il grafico
-            axios.get(`/transazioni`)
+            // Carica le transazioni per il grafico dei ricavi
+            axios.get(`${API_BASE_URL}/admin/transazioni`)
                 .then(response => {
-                    const transazioni = response.data;
+                    const transazioni = response.data || [];
+                    
+                    if (!Array.isArray(transazioni) || transazioni.length === 0) {
+                        // Se non ci sono transazioni, mostriamo un grafico vuoto
+                        renderEmptyChart('ricaviChart', 'Nessuna transazione disponibile');
+                        return;
+                    }
                     
                     // Raggruppa le transazioni per mese
                     const ricaviPerMese = {};
                     transazioni.forEach(t => {
-                        // Estrai anno-mese dalla data (assumendo che dataOra sia nel formato ISO)
-                        const data = new Date(t.dataOra);
-                        const mese = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+                        if (!t.dataOra) return; // Skip se non c'è data
                         
-                        if (!ricaviPerMese[mese]) {
-                            ricaviPerMese[mese] = 0;
+                        // Estrai anno-mese dalla data (assumendo che dataOra sia nel formato ISO)
+                        try {
+                            const data = new Date(t.dataOra);
+                            if (isNaN(data.getTime())) return; // Skip se la data non è valida
+                            
+                            const mese = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
+                            
+                            if (!ricaviPerMese[mese]) {
+                                ricaviPerMese[mese] = 0;
+                            }
+                            
+                            // Assicurati che l'importo sia un numero
+                            const importo = parseFloat(t.importo);
+                            if (!isNaN(importo)) {
+                                ricaviPerMese[mese] += importo;
+                            }
+                        } catch (e) {
+                            console.error('Errore nell\'elaborazione della data:', e);
                         }
-                        ricaviPerMese[mese] += t.importo;
                     });
                     
                     // Converti in array per il grafico
                     const labels = Object.keys(ricaviPerMese).sort();
                     const data = labels.map(mese => ricaviPerMese[mese]);
+                    
+                    // Se dopo il filtraggio non abbiamo dati, mostra grafico vuoto
+                    if (labels.length === 0) {
+                        renderEmptyChart('ricaviChart', 'Nessun dato valido disponibile');
+                        return;
+                    }
                     
                     const ricaviCtx = document.getElementById('ricaviChart').getContext('2d');
                     new Chart(ricaviCtx, {
@@ -975,17 +1034,36 @@ function getStatusClass (statoId) {
                         data: {
                             labels: labels,
                             datasets: [{
-                                label: 'Ricavi Mensili',
+                                label: 'Ricavi Mensili (€)',
                                 data: data,
                                 borderColor: 'rgb(59, 130, 246)',
+                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                                fill: true,
                                 tension: 0.1
                             }]
                         },
                         options: {
                             responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'top',
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return `€ ${context.raw.toFixed(2)}`;
+                                        }
+                                    }
+                                }
+                            },
                             scales: {
                                 y: {
-                                    beginAtZero: true
+                                    beginAtZero: true,
+                                    ticks: {
+                                        callback: function(value) {
+                                            return '€ ' + value;
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -993,31 +1071,49 @@ function getStatusClass (statoId) {
                 })
                 .catch(error => {
                     console.error('Error loading ricavi:', error);
-                    alert('Errore nel caricamento dei ricavi');
+                    renderEmptyChart('ricaviChart', 'Errore nel caricamento dei dati');
                 });
 
             // Carica le transazioni recenti
-            axios.get(`/transazioni`)
+            axios.get(`${API_BASE_URL}/admin/transazioni/recenti`)
                 .then(response => {
-                    // Prendiamo solo le ultime 10 transazioni
-                    const transazioni = response.data.slice(0, 10);
+                    const transazioni = Array.isArray(response.data) ? response.data : [];
                     const transazioniList = document.getElementById('transazioniList');
                     transazioniList.innerHTML = '';
 
+                    if (transazioni.length === 0) {
+                        transazioniList.innerHTML = '<div class="text-gray-500">Nessuna transazione recente</div>';
+                        return;
+                    }
+
                     transazioni.forEach(transazione => {
                         const div = document.createElement('div');
-                        div.className = 'mb-2';
+                        div.className = 'p-3 border-b mb-2';
+                        
+                        // Verifica che i dati esistano prima di usarli
+                        const bevandaNome = transazione.nomeBevanda || `Bevanda #${transazione.bevandaId || 'N/D'}`;
+                        const importo = parseFloat(transazione.importo);
+                        const dataOra = transazione.dataOra ? new Date(transazione.dataOra) : null;
+                        const formattedDate = dataOra && !isNaN(dataOra.getTime()) ? 
+                            dataOra.toLocaleString() : 'Data non disponibile';
+                        
                         div.innerHTML = `
-                            <span class="font-medium">${transazione.nomeBevanda || 'Bevanda #' + transazione.bevandaId}</span>: 
-                            <span class="text-gray-600">€${transazione.importo.toFixed(2)} - ${new Date(transazione.dataOra).toLocaleString()}</span>
-                            <span class="text-sm text-green-600">${transazione.nomeIstituto || ''}</span>
+                            <div class="flex justify-between">
+                                <span class="font-medium">${bevandaNome}</span>
+                                <span class="text-green-600">€${!isNaN(importo) ? importo.toFixed(2) : '0.00'}</span>
+                            </div>
+                            <div class="flex justify-between text-sm">
+                                <span class="text-gray-600">Macchina #${transazione.macchinaId || 'N/D'}</span>
+                                <span class="text-gray-500">${formattedDate}</span>
+                            </div>
                         `;
                         transazioniList.appendChild(div);
                     });
                 })
                 .catch(error => {
                     console.error('Error loading transazioni:', error);
-                    alert('Errore nel caricamento delle transazioni');
+                    const transazioniList = document.getElementById('transazioniList');
+                    transazioniList.innerHTML = '<div class="text-red-500">Errore nel caricamento delle transazioni</div>';
                 });
         }
         
@@ -1103,95 +1199,237 @@ function getStatusClass (statoId) {
                     });
             }
         }
+
+        // Funzione helper per renderizzare un grafico vuoto con messaggio
+        function renderEmptyChart(canvasId, message) {
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['Nessun dato'],
+                    datasets: [{
+                        label: 'Dati non disponibili',
+                        data: [0],
+                        backgroundColor: 'rgba(200, 200, 200, 0.2)',
+                        borderColor: 'rgba(200, 200, 200, 1)',
+                        borderWidth: 1
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            enabled: false
+                        }
+                    },
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                display: false
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        x: {
+                            grid: {
+                                display: false
+                            }
+                        }
+                    }
+                },
+                plugins: [{
+                    id: 'emptyMessage',
+                    afterDraw: (chart) => {
+                        const ctx = chart.ctx;
+                        const width = chart.width;
+                        const height = chart.height;
+                        
+                        ctx.save();
+                        ctx.textAlign = 'center';
+                        ctx.textBaseline = 'middle';
+                        ctx.font = '14px Arial';
+                        ctx.fillStyle = '#666';
+                        ctx.fillText(message, width / 2, height / 2);
+                        ctx.restore();
+                    }
+                }]
+            });
+        }
         
         function loadMonitoraggio() {
-            // Carica le macchine e il loro stato
-            axios.get(`${API_BASE_URL}/macchine`)
-                .then(response => {
-                    const macchine = response.data;
-                    const statoSistemaDiv = document.getElementById('statoSistema');
-                    
-                    // Calcola lo stato generale del sistema
-                    const totale = macchine.length;
-                    const attive = macchine.filter(m => m.statoId === 1).length;
-                    const percentualeAttive = (attive / totale * 100).toFixed(0);
-                    
-                    const statoDescrizione = percentualeAttive > 80 ? 
-                        "Sistema funzionante correttamente" : 
-                        percentualeAttive > 50 ? 
-                            "Sistema parzialmente funzionante" : 
-                            "Sistema compromesso";
-                    
-                    statoSistemaDiv.innerHTML = `
-                        <div class="text-lg">${percentualeAttive}% delle macchine attive</div>
-                        <div class="text-gray-600">${statoDescrizione}</div>
-                    `;
-                    
-                    // Prepara i dati per il grafico delle performance
-                    const inManutenzione = macchine.filter(m => m.statoId === 2).length;
-                    const fuoriServizio = macchine.filter(m => m.statoId === 3).length;
-                    
-                    const perfCtx = document.getElementById('performanceChart').getContext('2d');
-                    new Chart(perfCtx, {
-                        type: 'doughnut',
-                        data: {
-                            labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
-                            datasets: [{
-                                data: [attive, inManutenzione, fuoriServizio],
-                                backgroundColor: [
-                                    'rgb(34, 197, 94)',
-                                    'rgb(234, 179, 8)',
-                                    'rgb(239, 68, 68)'
-                                ]
-                            }]
+    // Carica le macchine e il loro stato
+    axios.get(`${API_BASE_URL}/macchine`)
+        .then(response => {
+            const macchine = Array.isArray(response.data) ? response.data : [];
+            const statoSistemaDiv = document.getElementById('statoSistema');
+            
+            if (macchine.length === 0) {
+                statoSistemaDiv.innerHTML = '<div class="text-gray-500">Nessuna macchina disponibile</div>';
+                renderEmptyChart('performanceChart', 'Nessuna macchina disponibile');
+                return;
+            }
+            
+            // Calcola lo stato generale del sistema
+            const totale = macchine.length;
+            const attive = macchine.filter(m => m.statoId === 1).length;
+            const inManutenzione = macchine.filter(m => m.statoId === 2).length;
+            const fuoriServizio = macchine.filter(m => m.statoId === 3).length;
+            
+            const percentualeAttive = totale > 0 ? (attive / totale * 100).toFixed(0) : 0;
+            
+            const statoClasse = percentualeAttive > 80 ? 'text-green-600' : 
+                               percentualeAttive > 50 ? 'text-yellow-600' : 'text-red-600';
+            
+            const statoDescrizione = percentualeAttive > 80 ? 
+                "Sistema funzionante correttamente" : 
+                percentualeAttive > 50 ? 
+                    "Sistema parzialmente funzionante" : 
+                    "Sistema compromesso";
+            
+            statoSistemaDiv.innerHTML = `
+                <div class="flex items-center mb-4">
+                    <div class="w-16 h-16 rounded-full flex items-center justify-center ${statoClasse} bg-gray-100 mr-4">
+                        <span class="text-2xl font-bold">${percentualeAttive}%</span>
+                    </div>
+                    <div>
+                        <div class="text-lg font-medium">${statoDescrizione}</div>
+                        <div class="text-gray-600 text-sm">${attive} macchine attive su ${totale}</div>
+                    </div>
+                </div>
+                
+                <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="bg-green-100 p-2 rounded">
+                        <div class="text-green-600 font-bold">${attive}</div>
+                        <div class="text-sm">Attive</div>
+                    </div>
+                    <div class="bg-yellow-100 p-2 rounded">
+                        <div class="text-yellow-600 font-bold">${inManutenzione}</div>
+                        <div class="text-sm">In Manutenzione</div>
+                    </div>
+                    <div class="bg-red-100 p-2 rounded">
+                        <div class="text-red-600 font-bold">${fuoriServizio}</div>
+                        <div class="text-sm">Fuori Servizio</div>
+                    </div>
+                </div>
+            `;
+            
+            // Crea il grafico delle performance
+            const perfCtx = document.getElementById('performanceChart').getContext('2d');
+            new Chart(perfCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
+                    datasets: [{
+                        data: [attive, inManutenzione, fuoriServizio],
+                        backgroundColor: [
+                            'rgb(34, 197, 94)',
+                            'rgb(234, 179, 8)',
+                            'rgb(239, 68, 68)'
+                        ]
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    plugins: {
+                        legend: {
+                            position: 'bottom'
                         },
-                        options: {
-                            responsive: true
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const value = context.raw;
+                                    const percentage = Math.round((value / totale) * 100);
+                                    return `${context.label}: ${value} (${percentage}%)`;
+                                }
+                            }
                         }
-                    });
-                })
-                .catch(error => {
-                    console.error('Error loading macchine:', error);
-                    alert('Errore nel caricamento dello stato del sistema');
-                });
+                    },
+                    cutout: '60%'
+                }
+            });
+        })
+        .catch(error => {
+            console.error('Error loading macchine:', error);
+            const statoSistemaDiv = document.getElementById('statoSistema');
+            statoSistemaDiv.innerHTML = '<div class="text-red-500">Errore nel caricamento dello stato del sistema</div>';
+            renderEmptyChart('performanceChart', 'Errore nel caricamento dei dati');
+        });
 
-            // Carica le manutenzioni attive (allarmi)
-            axios.get(`${API_BASE_URL}/manutenzione`)
-                .then(response => {
-                    const manutenzioni = response.data.filter(m => m.stato !== "COMPLETATA");
-                    const allarmiList = document.getElementById('allarmiList');
-                    allarmiList.innerHTML = '';
+    // Carica le manutenzioni attive (allarmi)
+    axios.get(`${API_BASE_URL}/manutenzione`)
+        .then(response => {
+            const manutenzioni = Array.isArray(response.data) ? 
+                response.data.filter(m => m.stato !== "COMPLETATA") : [];
+            
+            const allarmiList = document.getElementById('allarmiList');
+            allarmiList.innerHTML = '';
 
-                    if (manutenzioni.length === 0) {
-                        const div = document.createElement('div');
-                        div.className = 'text-green-600';
-                        div.innerHTML = 'Nessun allarme attivo';
-                        allarmiList.appendChild(div);
-                    } else {
-                        manutenzioni.forEach(manutenzione => {
-                            const div = document.createElement('div');
-                            div.className = 'mb-2 p-2 border-l-4 ' + 
-                                (manutenzione.urgenza === 'ALTA' ? 'border-red-500 bg-red-50' : 
-                                manutenzione.urgenza === 'MEDIA' ? 'border-yellow-500 bg-yellow-50' : 
-                                'border-blue-500 bg-blue-50');
-                            
-                            div.innerHTML = `
-                                <span class="font-medium">Macchina #${manutenzione.macchinaId}</span>: 
-                                <span class="text-gray-600">${manutenzione.tipoIntervento}</span>
-                                <div class="text-sm">${manutenzione.descrizione}</div>
-                                <div class="text-xs text-gray-500">
-                                    Richiesta: ${new Date(manutenzione.dataRichiesta).toLocaleString()}
-                                </div>
-                            `;
-                            allarmiList.appendChild(div);
-                        });
+            if (manutenzioni.length === 0) {
+                allarmiList.innerHTML = `
+                    <div class="text-center py-4">
+                        <i class="fas fa-check-circle text-green-500 text-2xl mb-2"></i>
+                        <div class="text-green-600">Nessun allarme attivo</div>
+                    </div>
+                `;
+                return;
+            }
+
+            manutenzioni.forEach(manutenzione => {
+                // Verifica che i dati esistano prima di usarli
+                const urgenza = manutenzione.urgenza || 'BASSA';
+                const tipoIntervento = manutenzione.tipoIntervento || 'Manutenzione generica';
+                const descrizione = manutenzione.descrizione || 'Nessuna descrizione';
+                
+                let borderClass = 'border-blue-500 bg-blue-50';
+                if (urgenza === 'ALTA') {
+                    borderClass = 'border-red-500 bg-red-50';
+                } else if (urgenza === 'MEDIA') {
+                    borderClass = 'border-yellow-500 bg-yellow-50';
+                }
+                
+                const div = document.createElement('div');
+                div.className = `mb-3 p-3 border-l-4 ${borderClass}`;
+                
+                let dataRichiesta = 'Data non disponibile';
+                if (manutenzione.dataRichiesta) {
+                    try {
+                        const data = new Date(manutenzione.dataRichiesta);
+                        if (!isNaN(data.getTime())) {
+                            dataRichiesta = data.toLocaleString();
+                        }
+                    } catch (e) {
+                        console.error('Errore nella formattazione della data:', e);
                     }
-                })
-                .catch(error => {
-                    console.error('Error loading allarmi:', error);
-                    alert('Errore nel caricamento degli allarmi');
-                });
-        }
+                }
+                
+                div.innerHTML = `
+                    <div class="flex justify-between">
+                        <span class="font-medium">Macchina #${manutenzione.macchinaId || 'N/D'}</span>
+                        <span class="text-sm font-medium ${urgenza === 'ALTA' ? 'text-red-600' : 
+                                         urgenza === 'MEDIA' ? 'text-yellow-600' : 'text-blue-600'}">
+                            ${urgenza}
+                        </span>
+                    </div>
+                    <div class="text-gray-800">${tipoIntervento}</div>
+                    <div class="text-sm text-gray-600 mt-1">${descrizione}</div>
+                    <div class="text-xs text-gray-500 mt-2">
+                        Richiesta: ${dataRichiesta}
+                    </div>
+                `;
+                allarmiList.appendChild(div);
+            });
+        })
+        .catch(error => {
+            console.error('Error loading allarmi:', error);
+            const allarmiList = document.getElementById('allarmiList');
+            allarmiList.innerHTML = '<div class="text-red-500">Errore nel caricamento degli allarmi</div>';
+        });
+}
 
         function getStatoClass(statoId) {
             switch(statoId) {
@@ -1253,6 +1491,9 @@ function getStatusClass (statoId) {
             checkAuth();
             showTab('istituti');
             initCharts();
+
+            document.getElementById('saveMacchinaBtn').addEventListener('click', addMacchina);
+            document.getElementById('saveUserBtn').addEventListener('click', addUser);
         });
     </script>
 </body>
