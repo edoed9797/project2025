@@ -7,10 +7,66 @@
     
     <!-- Dipendenze esterne -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
     <style>
+        .top-nav {
+            background-color: #3B82F6;
+            color: white;
+            padding: 1rem 0;
+        }
+        
+        .nav-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .brand-text {
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+        
+        .user-menu {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+        }
+        
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .btn {
+            padding: 0.5rem 1rem;
+            border-radius: 0.25rem;
+            cursor: pointer;
+            font-weight: 500;
+        }
+        
+        .btn-primary {
+            background-color: #3B82F6;
+            color: white;
+        }
+        
+        .btn-secondary {
+            background-color: #9CA3AF;
+            color: white;
+        }
+        
+        .btn-danger {
+            background-color: #EF4444;
+            color: white;
+        }
+        
+        .hidden {
+            display: none;
+        }
+
         .status-indicator {
             padding: 0.5rem;
             border-radius: 0.5rem;
@@ -139,17 +195,41 @@
 </head>
 
 <body class="bg-gray-100 min-h-screen">
+    <!-- Navigation Bar -->
+    <nav class="top-nav">
+        <div class="nav-content container mx-auto px-4">
+            <div class="nav-brand">
+                <span class="brand-text">Seleziona bevanda</span>
+            </div>
+            <div>
+                <button onclick="window.location.href = '/spegni'" class="btn btn-danger">
+                    <i class="fa-solid fa-power-off"></i>
+                </button>
+            </div>
+            <div>
+                <div class="user-menu">
+                    <span id="userInfo" class="user-info hidden">
+                        <span id="userName"></span>
+                        <i class="fas fa-user"></i>
+                    </span>
+                    <a href="/index.html" class="btn btn-primary">
+                        <i class="fas fa-home"></i> Home
+                    </a>
+                    <a class="btn btn-secondary" id="logoutBtn">
+                        Logout
+                    </a>
+                </div>
+            </div>
+        </div>
+    </nav>
+
     <div class="container mx-auto px-4 py-8">
         <!-- Header -->
         <header class="mb-8">
             <div class="flex justify-between items-center">
                 <h1 class="text-2xl font-bold">Distributore Automatico <span id="machineNumber" class="text-blue-600"></span></h1>
-                <div class="nav-brand">
-                    <a class="btn btn-primary" href="/index.html">Torna alla Home</a>
-                </div>
                 <div id="statusIndicator" class="status-indicator status-unknown">
                     <div class="w-3 h-3 rounded-full bg-current"></div>
-
                     <span class="status-text">Stato Sconosciuto</span>
                 </div>
             </div>
@@ -242,14 +322,14 @@
         // Configurazione
         const API_BASE_URL = 'https://localhost:8443/api';
         const MQTT_CONFIG = {
-        	    host: 'localhost',
-        	    port: 9002,  // Porta WebSocket
-        	    useSSL: true,
-        	    username: '20019309',
-        	    password: 'Pissir2024!',
-        	    keepAliveInterval: 30,
-        	    cleanSession: true,
-        	};
+            host: 'localhost',
+            port: 9002,  // Porta WebSocket
+            useSSL: true,
+            username: '20019309',
+            password: 'Pissir2024!',
+            keepAliveInterval: 30,
+            cleanSession: true,
+        };
 
         // Stato dell'applicazione - verrà inizializzato dai dati della macchina
         let machineState = {
@@ -267,6 +347,8 @@
         let currentCredit = 0;
         let selectedBeverage = null;
         let sugarLevel = 2;
+        let isInitialStateReceived = false;
+        let isPollingActive = false;
 
         // Riferimenti DOM
         const elements = {
@@ -281,22 +363,32 @@
             alertBox: document.getElementById('alertBox'),
             alertMessage: document.getElementById('alertMessage'),
             notificationBox: document.getElementById('notificationBox'),
-            notificationMessage: document.getElementById('notificationMessage')
+            notificationMessage: document.getElementById('notificationMessage'),
+            logoutBtn: document.getElementById('logoutBtn'),
+            userInfo: document.getElementById('userInfo'),
+            userName: document.getElementById('userName')
         };
 
         // Topic MQTT - verranno aggiornati con l'ID corretto
         const MQTT_TOPICS = {
-		    MACHINE_STATUS: 'macchine/${machineId}/stato',
-		    CASH_INSERT: 'macchine/${machineId}/cassa/inserimentoCredito', 
-		    CASH_RETURN: 'macchine/${machineId}/cassa/richiestaResto',      
-		    CASH_STATUS: 'macchine/${machineId}/cassa/stato/risposta',
-		    BEVERAGE_REQUEST: 'macchine/${machineId}/cassa/richiestaBevanda',
-		    BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato',
-		    MAINTENANCE: 'macchine/${machineId}/manutenzione/stato',
-		    ALERTS: 'macchine/${machineId}/eventi' 
+            // Topic di sottoscrizione per lo stato della macchina
+            MACHINE_STATUS: 'macchine/${machineId}/stato',
+            
+            // Topic per la gestione della cassa
+            CASH_INSERT: 'macchine/${machineId}/cassa/inserimentoCredito', 
+            CASH_RETURN: 'macchine/${machineId}/cassa/richiestaResto',
+            CASH_STATUS: 'macchine/${machineId}/cassa/stato/risposta',
+            
+            // Topic per le bevande
+            BEVERAGE_REQUEST: 'macchine/${machineId}/cassa/richiestaBevanda',
+            BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato/risposta',
+            
+            // Altri topic
+            MAINTENANCE: 'macchine/${machineId}/manutenzione/stato',
+            ALERTS: 'macchine/${machineId}/eventi'
         };
         
-     // Funzioni di utility per l'autenticazione
+        // Funzioni di utility per l'autenticazione
         const AuthUtils = {
             async ensureAuthToken() {
                 let token = localStorage.getItem('jwt_token');
@@ -324,19 +416,40 @@
                     'Content-Type': 'application/json',
                     'Authorization': `Bearer ${token}`
                 };
+            },
+            
+            logout() {
+                localStorage.removeItem('jwt_token');
+                localStorage.removeItem('userRole');
+                localStorage.removeItem('userName');
+                window.location.href = '/index.html';
+            },
+            
+            updateUIForAuthState() {
+                const token = localStorage.getItem('jwt_token');
+                const userName = localStorage.getItem('userName');
+                
+                if (token && userName && userName !== 'anonymous') {
+                    elements.userInfo.classList.remove('hidden');
+                    elements.userName.textContent = userName;
+                    elements.logoutBtn.classList.remove('hidden');
+                } else {
+                    elements.userInfo.classList.add('hidden');
+                    elements.logoutBtn.classList.add('hidden');
+                }
             }
         };
 
         // Funzione per ottenere l'ID della macchina dalla URL
         function getMachineIdFromUrl() {
-		    const urlParams = new URLSearchParams(window.location.search);
-		    const id = urlParams.get('machine'); // Modificato da 'id' a 'machine'
-		    if (!id) {
-		        showAlert('ID macchina non specificato');
-		        return null;
-		    }
-		    return parseInt(id);
-		}
+            const urlParams = new URLSearchParams(window.location.search);
+            const id = urlParams.get('machine');
+            if (!id) {
+                showAlert('ID macchina non specificato');
+                return null;
+            }
+            return parseInt(id);
+        }
 
         // Funzione per inizializzare lo stato della macchina
         async function initializeMachineState() {
@@ -348,6 +461,7 @@
                 }
                 
                 await AuthUtils.ensureAuthToken();
+                AuthUtils.updateUIForAuthState();
                 
                 // Aggiorna l'ID nei topic MQTT
                 Object.keys(MQTT_TOPICS).forEach(key => {
@@ -356,9 +470,9 @@
 
                 // Recupera i dati della macchina
                 const response = await axios.get(
-		            `${API_BASE_URL}/macchine/${currentMachineId}`,
-		            { headers: AuthUtils.getAuthHeaders() }
-		        );
+                    `${API_BASE_URL}/macchine/${currentMachineId}`,
+                    { headers: AuthUtils.getAuthHeaders() }
+                );
                 const machineData = response.data;
 
                 // Inizializza lo stato della macchina
@@ -368,103 +482,80 @@
                     cassaMassima: machineData.cassaMassima,
                     stato: machineData.statoId,
                     creditoAttuale: machineData.creditoAttuale || 0,
-                    bevande: machineData.bevande ||[],
+                    bevande: machineData.bevande || [],
                     cialde: machineData.cialde || []
                 };
 
                 // Aggiorna l'interfaccia
                 elements.machineNumber.textContent = `#${machineState.id}`;
                 updateMachineStatus(machineState.stato);
-                updateCreditDisplay();
                 
                 // Carica le bevande disponibili
                 await loadBeverages();
 
                 // Inizia la connessione MQTT
-                initializeMQTT();
-
+                await initializeMQTT();
+                
             } catch (error) {
-            	console.error('Errore nell\'inizializzazione della macchina:', error);
+                console.error('Errore nell\'inizializzazione della macchina:', error);
                 showAlert('Errore nel caricamento dei dati della macchina');
             }
         }
 
         // Inizializzazione MQTT
-        function initializeMQTT() {
-		    const clientId = 'web_client_' + Math.random().toString(16).substr(2, 8);
-		    
-		    // Costruzione corretta dell'URL WebSocket
-		    const wsUrl = MQTT_CONFIG.useSSL ? 
-		        `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
-		        `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
-		
-		    try {
-		        // Crea il client MQTT
-		        client = new Paho.MQTT.Client(wsUrl, clientId);
-		
-		        // Configura i callback
-		        client.onConnectionLost = onConnectionLost;
-		        client.onMessageArrived = onMessageArrived;
-		
-		        // Configura le opzioni di connessione
-		        const connectOptions = {
-		            userName: MQTT_CONFIG.username,
-		            password: MQTT_CONFIG.password,
-		            keepAliveInterval: MQTT_CONFIG.keepAliveInterval,
-		            cleanSession: MQTT_CONFIG.cleanSession,
-		            onSuccess: onConnect,
-		            onFailure: onConnectFailure,
-		            timeout: 3
-		        };
-		
-		        // Debug logging
-		        console.log('Tentativo di connessione MQTT:', {
-		            url: wsUrl,
-		            clientId: clientId,
-		            useSSL: MQTT_CONFIG.useSSL,
-		            port: MQTT_CONFIG.port
-		        });
-		
-		        // Imposta il trace correttamente
-		        if (window.location.hostname === 'localhost') {
-		            client.onTrace = function(message) {
-		                console.log('MQTT Trace:', message);
-		            };
-		        }
-		
-		        // Connetti il client
-		        client.connect(connectOptions);
-		
-		    } catch (error) {
-		        console.error('Errore nella creazione del client MQTT:', error);
-		        // Riprova la connessione dopo un ritardo
-		        setTimeout(() => {
-		            console.log('Ritento connessione MQTT...');
-		            initializeMQTT();
-		        }, 3000);
-		    }
-		}
-        function handleWebSocketError() {
+        async function initializeMQTT() {
             return new Promise((resolve, reject) => {
-                if (!client || !client.isConnected()) {
-                    console.log('Client non connesso, tento riconnessione...');
-                    
-                    const reconnectTimeout = setTimeout(() => {
-                        console.log('Timeout riconnessione raggiunto');
-                        reject(new Error('Timeout riconnessione'));
-                    }, 10000);
-
-                    initializeMQTT()
-                        .then(() => {
-                            clearTimeout(reconnectTimeout);
+                const clientId = 'web_client_' + Math.random().toString(16).substr(2, 8);
+                
+                // Costruzione corretta dell'URL WebSocket
+                const wsUrl = MQTT_CONFIG.useSSL ? 
+                    `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
+                    `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
+            
+                try {
+                    // Crea il client MQTT
+                    client = new Paho.MQTT.Client(wsUrl, clientId);
+            
+                    // Configura i callback
+                    client.onConnectionLost = onConnectionLost;
+                    client.onMessageArrived = onMessageArrived;
+            
+                    // Configura le opzioni di connessione
+                    const connectOptions = {
+                        userName: MQTT_CONFIG.username,
+                        password: MQTT_CONFIG.password,
+                        keepAliveInterval: MQTT_CONFIG.keepAliveInterval,
+                        cleanSession: MQTT_CONFIG.cleanSession,
+                        onSuccess: () => {
+                            onConnect();
                             resolve();
-                        })
-                        .catch(error => {
-                            clearTimeout(reconnectTimeout);
+                        },
+                        onFailure: (error) => {
+                            onConnectFailure(error);
                             reject(error);
-                        });
-                } else {
-                    resolve();
+                        },
+                        timeout: 3
+                    };
+            
+                    // Debug logging
+                    console.log('Tentativo di connessione MQTT:', {
+                        url: wsUrl,
+                        clientId: clientId,
+                        useSSL: MQTT_CONFIG.useSSL,
+                        port: MQTT_CONFIG.port
+                    });
+            
+                    // Connetti il client
+                    client.connect(connectOptions);
+            
+                } catch (error) {
+                    console.error('Errore nella creazione del client MQTT:', error);
+                    reject(error);
+                    // Riprova la connessione dopo un ritardo
+                    setTimeout(() => {
+                        console.log('Ritento connessione MQTT...');
+                        initializeMQTT().then(resolve).catch(reject);
+                    }, 3000);
                 }
             });
         }
@@ -475,11 +566,18 @@
                 client.subscribe(topic);
             });
             
-            // Richiedi lo stato iniziale della macchina solo una volta
-            publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'statusConn' });
+            // Richiedi lo stato iniziale della macchina all'avvio
+            requestInitialState();
+        }
+        
+        function requestInitialState() {
+            // Esegue una singola richiesta iniziale dello stato della macchina
+            console.log("Richiesta stato iniziale della macchina");
+            publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus', timestamp: Date.now() });
             
-            // Richiedi lo stato della cassa solo una volta
-            publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatusConn' });
+            // Esegue una singola richiesta iniziale dello stato della cassa
+            console.log("Richiesta stato iniziale della cassa");
+            publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus', timestamp: Date.now() });
         }
 
         function onConnectFailure(error) {
@@ -508,12 +606,6 @@
             retryConnection();
         }
         
-        function pollCashStatus() {
-            if (client?.isConnected()) {
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatusPoll' });
-            }
-        }
-        
         function onConnectionLost(responseObject) {
             if (responseObject.errorCode !== 0) {
                 console.log('Connessione MQTT persa:', responseObject.errorMessage);
@@ -530,84 +622,37 @@
                 try {
                     payload = JSON.parse(message.payloadString);
                 } catch (parseError) {
-                    console.warn("Messaggio non in formato JSON:", message.payloadString);
                     // Se non è JSON, usa il testo grezzo (potrebbe essere un numero)
                     payload = message.payloadString;
-                }
-             	// Skip logging for specific polling messages
-                const isPollingMessage = 
-                    (topic === MQTT_TOPICS.MACHINE_STATUS && payload?.request === 'statusConn') || 
-                    (topic === MQTT_TOPICS.CASH_STATUS && payload?.request === 'getStatusConn');
-                
-                if (!isPollingMessage) {
-                    console.log("Messaggio ricevuto:", topic, payload);
                 }
                 
                 switch (topic) {
                     case MQTT_TOPICS.MACHINE_STATUS:
-                        handleMachineStatus(payload);
+                        if (!payload.request) {
+                            console.log("Ricevuto stato macchina:", payload);
+                            handleMachineStatus(payload);
+                        }
                         break;
                     case MQTT_TOPICS.CASH_STATUS:
-                        handleCashStatus(payload);
-                        break;
-                    case MQTT_TOPICS.CASH_INSERT:
-                        // Richiedi l'aggiornamento dello stato della cassa dopo l'inserimento
-                        publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'statoDopoInserimento' });
+                        if (!payload.request) {
+                            console.log("Ricevuto stato cassa:", payload);
+                            handleCashStatus(payload);
+                        }
                         break;
                     case MQTT_TOPICS.BEVERAGE_STATUS:
+                        console.log("Ricevuto stato bevanda:", payload);
                         handleBeverageStatus(payload);
                         break;
                     case MQTT_TOPICS.ALERTS:
+                        console.log("Ricevuto alert:", payload);
                         handleAlerts(payload);
                         break;
                     default:
-                        console.log("Topic non gestito:", topic);
+                        // Non loggare messaggi non gestiti per topic sconosciuti
+                        break;
                 }
             } catch (error) {
                 console.error('Errore nel processamento del messaggio:', error);
-            }
-        }
-        
-        function testMQTTConnection() {
-            return new Promise((resolve, reject) => {
-                const testClient = new Paho.MQTT.Client(
-                    MQTT_CONFIG.host,
-                    MQTT_CONFIG.port,
-                    'test_' + Math.random().toString(16).substr(2, 8)
-                );
-
-                const timeout = setTimeout(() => {
-                    reject(new Error('Timeout di connessione'));
-                }, 5000);
-
-                testClient.connect({
-                    useSSL: MQTT_CONFIG.useSSL,
-                    userName: MQTT_CONFIG.username,
-                    password: MQTT_CONFIG.password,
-                    onSuccess: () => {
-                        clearTimeout(timeout);
-                        testClient.disconnect();
-                        resolve();
-                    },
-                    onFailure: (error) => {
-                        clearTimeout(timeout);
-                        reject(error);
-                    }
-                });
-            });
-        }
-        // Gestori dei messaggi MQTT
-        function handleMachineStatus(status) {
-            machineState = { ...machineState, ...status };
-            updateMachineStatus(machineState.stato);
-            updateUIBasedOnMachineState();
-            
-            if (status.cassaAttuale / status.cassaMassima > 0.9) {
-                publishMessage(MQTT_TOPICS.ALERTS, {
-                    tipo: 'CASSA_PIENA',
-                    messaggio: 'Necessario svuotamento cassa',
-                    livello: 2
-                });
             }
         }
         
@@ -622,11 +667,38 @@
                 }
             }, 3000);
         }
+
+        // Gestori dei messaggi MQTT
+        function handleMachineStatus(status) {
+            // Aggiorna lo stato della macchina solo se abbiamo dati validi
+            if (status && typeof status === 'object') {
+                machineState = { ...machineState, ...status };
+                
+                // Aggiorna l'interfaccia
+                updateMachineStatus(machineState.stato);
+                updateUIBasedOnMachineState();
+                
+                // Se non abbiamo ancora ricevuto lo stato della cassa, chiediamolo
+                if (currentCredit === 0 && machineState.creditoAttuale > 0) {
+                    currentCredit = machineState.creditoAttuale;
+                    updateCreditDisplay();
+                    updateDispenseButtonState();
+                    elements.returnCreditButton.disabled = currentCredit <= 0;
+                }
+                
+                if (status.cassaAttuale / status.cassaMassima > 0.9) {
+                    publishMessage(MQTT_TOPICS.ALERTS, {
+                        tipo: 'CASSA_PIENA',
+                        messaggio: 'Necessario svuotamento cassa',
+                        livello: 2
+                    });
+                }
+            }
+        }
         
         function handleCashStatus(status) {
-            
-            // Se riceviamo solo la richiesta di stato e non i dati effettivi
-            if (status && typeof status === 'object' && status.request === 'getStatus') {
+            // Ignora le richieste di status
+            if (status && typeof status === 'object' && status.request) {
                 return;
             }
             
@@ -651,21 +723,43 @@
         }
 
         function handleBeverageStatus(status) {
-        	if (status.completed) {
+            if (status.completed) {
                 elements.dispensingOverlay.classList.add('hidden');
                 resetSelection();
                 showNotification('Bevanda erogata con successo!');
                 
-                // Richiedi aggiornamento dello stato dopo l'erogazione
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'statoBevande' });
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'StatoCassaBevande' });
+                // Richiedi aggiornamento dello stato solo una volta dopo l'erogazione completata
+                console.log("Richiesta aggiornamento stato dopo erogazione completata");
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+                    request: 'getStatus', 
+                    timestamp: Date.now(),
+                    purpose: 'post-dispense-update' 
+                });
+                
+                // Aggiorna anche lo stato della cassa
+                publishMessage(MQTT_TOPICS.CASH_STATUS, { 
+                    request: 'getStatus', 
+                    timestamp: Date.now(),
+                    purpose: 'post-dispense-update' 
+                });
             } else if (status.error) {
                 elements.dispensingOverlay.classList.add('hidden');
                 showAlert(`Errore: ${status.error}`);
                 
-                // Richiedi aggiornamento anche in caso di errore
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'statusE' });
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatusE' });
+                // Richiedi aggiornamento solo una volta anche in caso di errore
+                console.log("Richiesta aggiornamento stato dopo errore erogazione");
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+                    request: 'getStatus', 
+                    timestamp: Date.now(),
+                    purpose: 'post-error-update' 
+                });
+                
+                // Aggiorna anche lo stato della cassa
+                publishMessage(MQTT_TOPICS.CASH_STATUS, { 
+                    request: 'getStatus', 
+                    timestamp: Date.now(),
+                    purpose: 'post-error-update' 
+                });
             }
         }
 
@@ -759,39 +853,127 @@
             const mqttMessage = new Paho.MQTT.Message(valueStr);
             mqttMessage.destinationName = MQTT_TOPICS.CASH_INSERT;
             client.send(mqttMessage);
-            
-            // Richiedi aggiornamento dello stato dopo l'inserimento (una sola volta)
-            // Usiamo un flag per evitare richieste multiple
-            if (!window.updateInProgress) {
-                window.updateInProgress = true;
-                setTimeout(() => {
-                    publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatusCoinInsert' });
-                    window.updateInProgress = false;
-                }, 500);
-            }
         }
 
         function handleCreditReturn() {
-            if (currentCredit > 0) {
-                publishMessage(MQTT_TOPICS.CASH_RETURN, currentCredit);
-                
-                // Richiedi aggiornamento dello stato dopo la restituzione
-                setTimeout(() => {
-                    publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatusReturn' });
-                    publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'statusReturn' });
-                }, 500);
-            }
+            if (currentCredit <= 0) return;
+            
+            const creditToReturn = currentCredit;
+            publishMessage(MQTT_TOPICS.CASH_RETURN, currentCredit);
+            
+            // Mostra subito un messaggio con il credito restituito
+            showNotification(`Restituiti € ${creditToReturn.toFixed(2)}`);
+            
+            // Aggiorna immediatamente l'UI
+            currentCredit = 0;
+            updateCreditDisplay();
+            updateDispenseButtonState();
+            elements.returnCreditButton.disabled = true;
+            
+            // Richiedi aggiornamento dello stato della macchina dopo la restituzione
+            setTimeout(() => {
+                requestInitialState();
+            }, 500);
         }
 
-        function handleBeverageRequest() {
+        async function handleBeverageRequest() {
             if (!selectedBeverage || currentCredit < selectedBeverage.price) return;
             
-            elements.dispensingOverlay.classList.remove('hidden');
-            publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
-                bevandaId: selectedBeverage.id,
-                importo: selectedBeverage.price,
-                zucchero: sugarLevel,
-                timestamp: Date.now()
+            try {
+                // Verifica lo stato della macchina prima di procedere con l'erogazione
+                await checkMachineStatusBeforeDispense();
+                
+                elements.dispensingOverlay.classList.remove('hidden');
+                publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
+                    bevandaId: selectedBeverage.id,
+                    importo: selectedBeverage.price,
+                    zucchero: sugarLevel,
+                    timestamp: Date.now()
+                });
+            } catch (error) {
+                showAlert(`Non è possibile erogare: ${error.message}`);
+            }
+        }
+        
+        // Funzione per verificare lo stato della macchina prima dell'erogazione
+        async function checkMachineStatusBeforeDispense() {
+            return new Promise((resolve, reject) => {
+                console.log("Verifica stato macchina prima dell'erogazione");
+                
+                // Richiedi lo stato attuale della macchina una sola volta
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+                    request: 'getStatus', 
+                    timestamp: Date.now(),
+                    purpose: 'pre-dispense-check'
+                });
+                
+                // Aspetta una risposta per massimo 3 secondi
+                const timeout = setTimeout(() => {
+                    console.warn("Timeout nella verifica dello stato della macchina");
+                    reject(new Error("Timeout verifica stato macchina"));
+                }, 3000);
+                
+                // Funzione temporanea per gestire la risposta
+                const tempHandler = function(message) {
+                    try {
+                        if (message.destinationName === MQTT_TOPICS.MACHINE_STATUS) {
+                            let payload;
+                            try {
+                                payload = JSON.parse(message.payloadString);
+                            } catch {
+                                payload = message.payloadString;
+                            }
+                            
+                            // Ignora i messaggi di richiesta
+                            if (payload.request) return;
+                            
+                            console.log("Ricevuta risposta stato macchina pre-erogazione:", payload);
+                            
+                            // Aggiorna lo stato della macchina
+                            if (payload && typeof payload === 'object') {
+                                machineState = { ...machineState, ...payload };
+                                
+                                // Verifica se la macchina è attiva
+                                if (machineState.stato !== 1) {
+                                    clearTimeout(timeout);
+                                    client.onMessageArrived = onMessageArrived; // Ripristina il gestore originale
+                                    reject(new Error("La macchina non è attiva"));
+                                    return;
+                                }
+                                
+                                // Verifica credito
+                                if (currentCredit < selectedBeverage.price) {
+                                    clearTimeout(timeout);
+                                    client.onMessageArrived = onMessageArrived;
+                                    reject(new Error("Credito insufficiente"));
+                                    return;
+                                }
+                                
+                                // Tutto ok, procedi
+                                clearTimeout(timeout);
+                                client.onMessageArrived = onMessageArrived;
+                                resolve();
+                            }
+                        }
+                    } catch (error) {
+                        console.error('Errore nella verifica dello stato:', error);
+                        clearTimeout(timeout);
+                        client.onMessageArrived = onMessageArrived;
+                        reject(error);
+                    }
+                };
+                
+                // Salva il gestore originale e sostituiscilo temporaneamente
+                const originalHandler = client.onMessageArrived;
+                client.onMessageArrived = tempHandler;
+                
+                // Dopo il timeout, ripristina il gestore originale
+                setTimeout(() => {
+                    if (client.onMessageArrived === tempHandler) {
+                        console.log("Ripristino handler originale dopo timeout");
+                        client.onMessageArrived = onMessageArrived;
+                    }
+                }, 3100);
             });
         }
 
@@ -810,12 +992,12 @@
 
         async function loadBeverages() {
             try {
-            	const response = await axios.get(
-                        `${API_BASE_URL}/macchine/${currentMachineId}/bevande`,
-                        { headers: AuthUtils.getAuthHeaders() }
-                    );
-                    machineState.bevande = response.data;
-                    renderBeverages(machineState.bevande);
+                const response = await axios.get(
+                    `${API_BASE_URL}/macchine/${currentMachineId}/bevande`,
+                    { headers: AuthUtils.getAuthHeaders() }
+                );
+                machineState.bevande = response.data;
+                renderBeverages(machineState.bevande);
             } catch (error) {
                 console.error('Errore nel caricamento delle bevande:', error);
                 showAlert('Errore nel caricamento delle bevande disponibili');
@@ -834,7 +1016,7 @@
                 </div>
             `).join('');
         }
-
+        
         function resetSelection() {
             selectedBeverage = null;
             document.querySelectorAll('.beverage-card').forEach(card => {
@@ -850,11 +1032,6 @@
                 showAlert('Non connesso al sistema');
                 return;
             }
-            const authToken = localStorage.getItem('jwt_token');
-            const enrichedMessage = {
-                ...message,
-                token: authToken
-            };
 
             // Converti il messaggio in stringa JSON
             let messageStr;
@@ -864,15 +1041,25 @@
                 messageStr = String(message); // Converti numeri o altri tipi in stringhe
             }
             
-            const payload  = new Paho.MQTT.Message(messageStr);
-            payload .destinationName = topic;
+            const payload = new Paho.MQTT.Message(messageStr);
+            payload.destinationName = topic;
             payload.qos = 1;
             payload.retained = false;
 
             client.send(payload);
             console.log(`Pubblicato: Topic: ${topic} - Messaggio: ${messageStr}`);
         }
-     // Configurazione globale di axios per gestire gli errori di autenticazione
+
+        // Funzione per azzerare il credito prima di lasciare la pagina
+        function resetCreditBeforeLeaving() {
+            if (currentCredit > 0) {
+                console.log("Richiesta restituzione credito prima di lasciare la pagina: €", currentCredit);
+                publishMessage(MQTT_TOPICS.CASH_RETURN, currentCredit);
+                currentCredit = 0;
+            }
+        }
+
+        // Configurazione globale di axios per gestire gli errori di autenticazione
         axios.interceptors.response.use(
             response => response,
             async error => {
@@ -888,40 +1075,91 @@
                 return Promise.reject(error);
             }
         );
-        console.log("MQTT connesso:", client?.isConnected());
-        console.log("Topic MQTT dopo sostituzione:", MQTT_TOPICS);
-        console.log("Tentativo di pubblicazione su:", MQTT_TOPICS.CASH_INSERT);
+
+        // Event listeners per la gestione dei tab per categorie
+        function filterBeverages(category) {
+            document.querySelectorAll('.tab-button').forEach(tab => {
+                tab.classList.remove('bg-blue-600', 'text-white');
+                tab.classList.add('bg-gray-200');
+            });
+            
+            document.querySelector(`.tab-button[data-category="${category}"]`).classList.remove('bg-gray-200');
+            document.querySelector(`.tab-button[data-category="${category}"]`).classList.add('bg-blue-600', 'text-white');
+            
+            if (category === 'all') {
+                document.querySelectorAll('.beverage-card').forEach(card => {
+                    card.classList.remove('hidden');
+                });
+            } else {
+                document.querySelectorAll('.beverage-card').forEach(card => {
+                    const beverage = machineState.bevande.find(b => b.id === parseInt(card.dataset.id));
+                    if (beverage && beverage.categoria === category) {
+                        card.classList.remove('hidden');
+                    } else {
+                        card.classList.add('hidden');
+                    }
+                });
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Listener per i pulsanti moneta
+            document.querySelectorAll('.coin-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    const value = parseFloat(button.getAttribute('data-value'));
+                    handleCoinInsertion(value);
+                });
+            });
+
+            // Listener per i pulsanti zucchero
+            document.querySelectorAll('.sugar-btn').forEach(button => {
+                button.addEventListener('click', () => {
+                    document.querySelectorAll('.sugar-btn').forEach(btn => btn.classList.remove('active'));
+                    button.classList.add('active');
+                    sugarLevel = parseInt(button.getAttribute('data-level'));
+                });
+            });
+
+            // Listener per i tab categorie
+            document.querySelectorAll('.tab-button').forEach(tab => {
+                tab.addEventListener('click', () => {
+                    filterBeverages(tab.getAttribute('data-category'));
+                });
+            });
+
+            // Listener per pulsanti azione
+            elements.returnCreditButton.addEventListener('click', handleCreditReturn);
+            elements.dispenseButton.addEventListener('click', handleBeverageRequest);
+            elements.logoutBtn.addEventListener('click', AuthUtils.logout);
+        }
 
         // Pulizia alla chiusura della pagina
         window.onbeforeunload = function() {
-        publishStatus("offline");
-        client.disconnect();
+            resetCreditBeforeLeaving();
+            
+            // Disconnetti il client MQTT
+            if (client && client.isConnected()) {
+                client.disconnect();
+            }
         };
-     
+
+        // Gestione navigazione
+        window.addEventListener('popstate', resetCreditBeforeLeaving);
+        
+        // Intercetta la navigazione tramite link
+        document.addEventListener('click', function(e) {
+            // Verifica che sia un link
+            if (e.target.tagName === 'A' || e.target.closest('a')) {
+                resetCreditBeforeLeaving();
+            }
+        });
+
         // Setup iniziale
         document.addEventListener('DOMContentLoaded', async () => {
             try {
                 await initializeMachineState();
-                
-                // Configurazione dei listener
-                document.querySelectorAll('.coin-btn').forEach(button => {
-                    button.addEventListener('click', () => {
-                        const value = parseFloat(button.getAttribute('data-value'));
-                        handleCoinInsertion(value);
-                    });
-                });
-
-                document.querySelectorAll('.sugar-btn').forEach(button => {
-                    button.addEventListener('click', () => {
-                        document.querySelectorAll('.sugar-btn').forEach(btn => btn.classList.remove('active'));
-                        button.classList.add('active');
-                        sugarLevel = parseInt(button.getAttribute('data-level'));
-                    });
-                });
-
-                elements.returnCreditButton.addEventListener('click', handleCreditReturn);
-                elements.dispenseButton.addEventListener('click', handleBeverageRequest);
-
+                setupEventListeners();
             } catch (error) {
                 console.error('Errore durante l\'inizializzazione:', error);
                 showAlert('Errore durante l\'inizializzazione dell\'interfaccia');

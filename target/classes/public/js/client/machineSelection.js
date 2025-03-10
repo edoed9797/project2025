@@ -68,7 +68,7 @@ class MachineSelectionManager {
             });
             
             if (!response.ok) {
-                localStorage.removeItem('authToken');
+                localStorage.removeItem('jwt_token');
                 const newToken = await this.ensureAuthToken();
                 
                 const retryResponse = await fetch('/api/macchine', {

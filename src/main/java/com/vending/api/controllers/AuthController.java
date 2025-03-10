@@ -99,11 +99,12 @@ public class AuthController {
                 AdminLogin login = loginResult.get();
                 Utente utente = login.getUtente();
                 String token = jwtService.generaToken(utente);
-
+                String idU = String.valueOf(utente.getId());
                 Map<String, String> response = new HashMap<>();
                 response.put("token", token);
                 response.put("ruolo", utente.getRuolo());
                 response.put("username", login.getUsername());
+                response.put("user_id", idU);
 
                 res.status(200);
                 return gson.toJson(response);

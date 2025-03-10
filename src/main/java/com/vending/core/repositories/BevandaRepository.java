@@ -4,8 +4,11 @@ import com.vending.core.models.Bevanda;
 import com.vending.core.models.Cialda;
 import java.sql.*;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 /**
  * Repository per la gestione delle bevande nel database.
@@ -27,12 +30,15 @@ public class BevandaRepository {
     }
 
     /**
-     * Trova tutte le bevande disponibili.
+     * Trova tutte le bevande disponibili con approccio ottimizzato.
      *
      * @return lista di tutte le bevande con le relative cialde
      */
     public List<Bevanda> findAll() {
         List<Bevanda> bevande = new ArrayList<>();
+        List<Integer> bevandaIds = new ArrayList<>();
+        
+        // Prima query: recupera tutte le bevande
         String sql = "SELECT * FROM bevanda";
         
         try (Connection conn = dbConnection.getConnection();
@@ -41,17 +47,66 @@ public class BevandaRepository {
             
             while (rs.next()) {
                 Bevanda bevanda = mapResultSetToBevanda(rs);
-                caricaCialde(bevanda);
                 bevande.add(bevanda);
+                bevandaIds.add(bevanda.getId());
             }
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il recupero delle bevande", e);
         }
+        
+        // Seconda query: recupera tutte le cialde per tutte le bevande in un'unica query
+        if (!bevandaIds.isEmpty()) {
+            try (Connection conn = dbConnection.getConnection()) {
+                // Creazione della mappa bevandaId -> List<Cialda>
+                Map<Integer, List<Cialda>> cialdaMap = new HashMap<>();
+                
+                // Costruisci la clause IN con tutti gli ID delle bevande
+                String inClause = bevandaIds.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(",", "(", ")"));
+                    
+                String cialdeQuery = "SELECT c.*, bhc.ID_Bevanda FROM cialda c " +
+                                   "JOIN bevandahacialda bhc ON c.ID_Cialda = bhc.ID_Cialda " +
+                                   "WHERE bhc.ID_Bevanda IN " + inClause;
+                                   
+                try (Statement cialdeStmt = conn.createStatement();
+                     ResultSet cialdeRs = cialdeStmt.executeQuery(cialdeQuery)) {
+                    
+                    while (cialdeRs.next()) {
+                        int bevandaId = cialdeRs.getInt("ID_Bevanda");
+                        
+                        Cialda cialda = new Cialda();
+                        cialda.setId(cialdeRs.getInt("ID_Cialda"));
+                        cialda.setNome(cialdeRs.getString("Nome"));
+                        cialda.setTipoCialda(cialdeRs.getString("TipoCialda"));
+                        
+                        // Aggiungi la cialda alla mappa, inizializzando la lista se necessario
+                        if (!cialdaMap.containsKey(bevandaId)) {
+                            cialdaMap.put(bevandaId, new ArrayList<>());
+                        }
+                        cialdaMap.get(bevandaId).add(cialda);
+                    }
+                }
+                
+                // Assegna le cialde alle rispettive bevande
+                for (Bevanda bevanda : bevande) {
+                    List<Cialda> cialdeBevanda = cialdaMap.get(bevanda.getId());
+                    if (cialdeBevanda != null) {
+                        bevanda.setCialde(cialdeBevanda);
+                    } else {
+                        bevanda.setCialde(new ArrayList<>());
+                    }
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Errore durante il recupero delle cialde per le bevande", e);
+            }
+        }
+        
         return bevande;
     }
 
     /**
-     * Trova una bevanda tramite ID.
+     * Trova una bevanda tramite ID con le relative cialde.
      *
      * @param id ID della bevanda
      * @return Optional contenente la bevanda se trovata
@@ -63,27 +118,55 @@ public class BevandaRepository {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setInt(1, id);
-            ResultSet rs = stmt.executeQuery();
             
-            if (rs.next()) {
-                Bevanda bevanda = mapResultSetToBevanda(rs);
-                caricaCialde(bevanda);
-                return Optional.of(bevanda);
+            try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    Bevanda bevanda = mapResultSetToBevanda(rs);
+                    
+                    // Query separata per le cialde
+                    String cialdeQuery = "SELECT c.* FROM cialda c " +
+                                       "JOIN bevandahacialda bhc ON c.ID_Cialda = bhc.ID_Cialda " +
+                                       "WHERE bhc.ID_Bevanda = ?";
+                                       
+                    try (PreparedStatement cialdeStmt = conn.prepareStatement(cialdeQuery)) {
+                        cialdeStmt.setInt(1, id);
+                        
+                        try (ResultSet cialdeRs = cialdeStmt.executeQuery()) {
+                            List<Cialda> cialde = new ArrayList<>();
+                            
+                            while (cialdeRs.next()) {
+                                Cialda cialda = new Cialda();
+                                cialda.setId(cialdeRs.getInt("ID_Cialda"));
+                                cialda.setNome(cialdeRs.getString("Nome"));
+                                cialda.setTipoCialda(cialdeRs.getString("TipoCialda"));
+                                cialde.add(cialda);
+                            }
+                            
+                            bevanda.setCialde(cialde);
+                        }
+                    }
+                    
+                    return Optional.of(bevanda);
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il recupero della bevanda", e);
         }
+        
         return Optional.empty();
     }
 
     /**
-     * Trova le bevande disponibili per una specifica macchina.
+     * Trova le bevande disponibili per una specifica macchina con approccio ottimizzato.
      *
      * @param macchinaId ID della macchina
      * @return lista delle bevande disponibili per la macchina
      */
     public List<Bevanda> findByMacchinaId(int macchinaId) {
         List<Bevanda> bevande = new ArrayList<>();
+        List<Integer> bevandaIds = new ArrayList<>();
+        
+        // Prima query: recupera tutte le bevande per la macchina specificata
         String sql = "SELECT b.* FROM bevanda b " +
                     "JOIN macchinahabevanda mhb ON b.ID_Bevanda = mhb.ID_Bevanda " +
                     "WHERE mhb.ID_Macchina = ?";
@@ -92,16 +175,66 @@ public class BevandaRepository {
              PreparedStatement stmt = conn.prepareStatement(sql)) {
             
             stmt.setInt(1, macchinaId);
-            ResultSet rs = stmt.executeQuery();
             
-            while (rs.next()) {
-                Bevanda bevanda = mapResultSetToBevanda(rs);
-                caricaCialde(bevanda);
-                bevande.add(bevanda);
+            try (ResultSet rs = stmt.executeQuery()) {
+                while (rs.next()) {
+                    Bevanda bevanda = mapResultSetToBevanda(rs);
+                    bevande.add(bevanda);
+                    bevandaIds.add(bevanda.getId());
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il recupero delle bevande della macchina", e);
         }
+        
+        // Seconda query: recupera tutte le cialde per tutte le bevande in un'unica query
+        if (!bevandaIds.isEmpty()) {
+            try (Connection conn = dbConnection.getConnection()) {
+                // Creazione della mappa bevandaId -> List<Cialda>
+                Map<Integer, List<Cialda>> cialdaMap = new HashMap<>();
+                
+                // Costruisci la clause IN con tutti gli ID delle bevande
+                String inClause = bevandaIds.stream()
+                    .map(String::valueOf)
+                    .collect(Collectors.joining(",", "(", ")"));
+                    
+                String cialdeQuery = "SELECT c.*, bhc.ID_Bevanda FROM cialda c " +
+                                   "JOIN bevandahacialda bhc ON c.ID_Cialda = bhc.ID_Cialda " +
+                                   "WHERE bhc.ID_Bevanda IN " + inClause;
+                                   
+                try (Statement cialdeStmt = conn.createStatement();
+                     ResultSet cialdeRs = cialdeStmt.executeQuery(cialdeQuery)) {
+                    
+                    while (cialdeRs.next()) {
+                        int bevandaId = cialdeRs.getInt("ID_Bevanda");
+                        
+                        Cialda cialda = new Cialda();
+                        cialda.setId(cialdeRs.getInt("ID_Cialda"));
+                        cialda.setNome(cialdeRs.getString("Nome"));
+                        cialda.setTipoCialda(cialdeRs.getString("TipoCialda"));
+                        
+                        // Aggiungi la cialda alla mappa, inizializzando la lista se necessario
+                        if (!cialdaMap.containsKey(bevandaId)) {
+                            cialdaMap.put(bevandaId, new ArrayList<>());
+                        }
+                        cialdaMap.get(bevandaId).add(cialda);
+                    }
+                }
+                
+                // Assegna le cialde alle rispettive bevande
+                for (Bevanda bevanda : bevande) {
+                    List<Cialda> cialdeBevanda = cialdaMap.get(bevanda.getId());
+                    if (cialdeBevanda != null) {
+                        bevanda.setCialde(cialdeBevanda);
+                    } else {
+                        bevanda.setCialde(new ArrayList<>());
+                    }
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Errore durante il recupero delle cialde per le bevande", e);
+            }
+        }
+        
         return bevande;
     }
 
@@ -213,37 +346,18 @@ public class BevandaRepository {
         bevanda.setId(rs.getInt("ID_Bevanda"));
         bevanda.setNome(rs.getString("Nome"));
         bevanda.setPrezzo(rs.getDouble("Prezzo"));
+        bevanda.setCialde(new ArrayList<>()); // Inizializza la lista vuota
         return bevanda;
-    }
-
-    /**
-     * Carica le cialde associate alla bevanda.
-     */
-    private void caricaCialde(Bevanda bevanda) throws SQLException {
-        String sql = "SELECT c.* FROM cialda c " +
-                    "JOIN bevandahacialda bhc ON c.ID_Cialda = bhc.ID_Cialda " +
-                    "WHERE bhc.ID_Bevanda = ?";
-        
-        try (Connection conn = dbConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
-            stmt.setInt(1, bevanda.getId());
-            ResultSet rs = stmt.executeQuery();
-            
-            while (rs.next()) {
-                Cialda cialda = new Cialda();
-                cialda.setId(rs.getInt("ID_Cialda"));
-                cialda.setNome(rs.getString("Nome"));
-                cialda.setTipoCialda(rs.getString("TipoCialda"));
-                bevanda.getCialde().add(cialda);
-            }
-        }
     }
 
     /**
      * Salva le associazioni tra bevanda e cialde.
      */
     private void salvaCialde(Connection conn, Bevanda bevanda) throws SQLException {
+        if (bevanda.getCialde() == null || bevanda.getCialde().isEmpty()) {
+            return;
+        }
+        
         String sql = "INSERT INTO bevandahacialda (ID_Bevanda, ID_Cialda) VALUES (?, ?)";
         
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {

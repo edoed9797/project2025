@@ -117,7 +117,7 @@ public class AuthMiddleware {
 
     /**
      * Verifica se l'utente ha i privilegi di amministratore.
-     * Controlla il ruolo presente nel token JWT.
+     * Controlla il ruolo presente nell'header "user_role".
      *
      * @param req l'oggetto Request di Spark contenente l'header di autorizzazione
      * @param res l'oggetto Response di Spark per impostare lo status e il corpo
@@ -125,27 +125,21 @@ public class AuthMiddleware {
      * @return true se l'utente è un amministratore, false altrimenti
      */
     public boolean autorizzazioneAdmin(Request req, Response res) {
-        String authHeader = req.headers("Authorization");
-        if (authHeader == null || !authHeader.startsWith("Bearer ")) {
+        String userRole = req.headers("user_role");
+
+        if (userRole == null || userRole.isEmpty()) {
             res.status(401);
-            res.body(gson.toJson(Map.of("errore", "Token di autorizzazione mancante o malformato")));
+            res.body(gson.toJson(Map.of("errore", "Ruolo dell'utente mancante")));
             return false;
         }
 
-        String token = authHeader.substring(7);
-
-        try {
-            String ruolo = jwtService.getRuoloDaToken(token);
-            if (!"Amministratore".equals(ruolo) || !"Impiegato".equals(ruolo) || !"Tecnico".equals(ruolo) || ruolo == "") {
-                res.status(403);
-                res.body(gson.toJson(Map.of("errore", "Accesso non autorizzato!")));
-                return false;
-            }
-            else return true;
-        } catch (Exception e) {
+        // Verifica se il ruolo è "Amministratore", "Impiegato" o "Tecnico"
+        if (!"Amministratore".equals(userRole) && !"Impiegato".equals(userRole) && !"Tecnico".equals(userRole)) {
             res.status(403);
-            res.body(gson.toJson(Map.of("errore", "Accesso non autorizzato: " + e.getMessage())));
+            res.body(gson.toJson(Map.of("errore", "Accesso non autorizzato!")));
             return false;
         }
+
+        return true;
     }
 }

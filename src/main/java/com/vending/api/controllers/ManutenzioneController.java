@@ -2,6 +2,7 @@ package com.vending.api.controllers;
 
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.vending.ServiceRegistry;
 import com.vending.core.models.Manutenzione;
 import com.vending.core.repositories.ManutenzioneRepository;
 import spark.Request;
@@ -24,7 +25,7 @@ public class ManutenzioneController {
      */
     public ManutenzioneController(ManutenzioneRepository manutenzioneRepository) {
         this.manutenzioneRepository = manutenzioneRepository;
-        this.gson = new Gson();
+        this.gson = ServiceRegistry.get(Gson.class);
     }
 
     /**

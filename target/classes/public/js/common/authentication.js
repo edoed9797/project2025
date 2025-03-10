@@ -28,10 +28,10 @@ class AuthenticationService {
             });
 
             if (response && response.token) {
-				console.log(response);
                 localStorage.setItem(this.tokenKey, response.token);
                 localStorage.setItem(this.roleKey, response.ruolo);
                 localStorage.setItem(this.userNameKey, username);
+                localStorage.setItem(this.user_id, response.user_id);
                 return true;
             }
             return false;
@@ -48,6 +48,7 @@ class AuthenticationService {
         localStorage.removeItem(this.tokenKey);
         localStorage.removeItem(this.roleKey);
         localStorage.removeItem(this.userNameKey);
+        localStorage.removeItem(this.user_id);
         window.location.href = '/index.html';
     }
 
@@ -103,6 +104,15 @@ class AuthenticationService {
     isEmployee() {
         const role = this.getUserRole();
         return role === 'operatore' || role === 'employee' || role === 'impiegato';
+    }
+    
+    /**
+     * Verifies if user has employee role
+     * @returns {boolean}
+     */
+    isTec() {
+        const role = this.getUserRole();
+        return role === 'tecnico' || role === 'Tecnico';
     }
 
     /**

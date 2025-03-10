@@ -49,7 +49,7 @@
                 </button>
                </div>
                <div>
-                <button onclick="window.location.href = '/spegni'" class="btn btn-danger">
+                <button onclick="window.location.href = '/spegni'" class="bg-red-500 px-3 py-2 rounded hover:bg-red-600">
                     <i class="fa-solid fa-power-off"></i>
                 </button>
                 
@@ -57,7 +57,7 @@
                <div>
                 <span id="userInfo" class="user-info">
                 <span id="userName"></span>
-                    <i class="fas fa-user"></i>
+                 <i class="fas fa-user"></i>
                 </span>
                 <button onclick="logout()" class="bg-red-500 px-3 py-2 rounded hover:bg-red-600">
                     Logout
@@ -160,33 +160,96 @@
             </div>
 
             <!-- Magazzino Tab -->
-            <div id="magazzino" class="tab-content hidden">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <h3 class="text-lg font-bold mb-4">Scorte Cialde</h3>
-                        <div id="scorteCialde"></div>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <h3 class="text-lg font-bold mb-4">Rifornimenti Necessari</h3>
-                        <div id="rifornimentiList"></div>
-                    </div>
-                </div>
-            </div>
+			<div id="magazzino" class="tab-content hidden">
+			    <!-- Tab Navigation -->
+			    <div class="mb-4 border-b border-gray-200">
+			        <ul class="flex flex-wrap -mb-px" id="magazzinoTabs">
+			            <li class="mr-2">
+			                <button onclick="showMagazzinoTab('bevande')" class="magazzino-tab-btn inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-blue-600 hover:border-blue-600" data-tab="bevande">
+			                    <i class="fas fa-coffee mr-2"></i>Bevande Disponibili
+			                </button>
+			            </li>
+			            <li class="mr-2">
+			                <button onclick="showMagazzinoTab('cialde')" class="magazzino-tab-btn inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-blue-600 hover:border-blue-600" data-tab="cialde">
+			                    <i class="fas fa-archive mr-2"></i>Cialde Disponibili
+			                </button>
+			            </li>
+			        </ul>
+			    </div>
+			    
+			    <!-- Tab Contents -->
+			    <div class="bg-white rounded-lg shadow p-4">
+			        <!-- Bevande Tab Content -->
+			        <div id="bevandeTab" class="magazzino-tab-content">
+			            <h3 class="text-lg font-bold mb-4">Bevande Disponibili</h3>
+			            <div id="bevandeList" class="space-y-4">
+			                <!-- Populated by JavaScript -->
+			                <div class="text-center text-gray-500">
+			                    <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...
+			                </div>
+			            </div>
+			        </div>
+			        
+			        <!-- Cialde Tab Content -->
+			        <div id="cialdeTab" class="magazzino-tab-content hidden">
+			            <h3 class="text-lg font-bold mb-4">Cialde Disponibili</h3>
+			            <div id="cialdeList" class="space-y-4">
+			                <!-- Populated by JavaScript -->
+			                <div class="text-center text-gray-500">
+			                    <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...
+			                </div>
+			            </div>
+			        </div>
+			    </div>
+			</div>
 
             <!-- Finanze Tab -->
             <div id="finanze" class="tab-content hidden">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <h3 class="text-lg font-bold mb-4">Ricavi Totali</h3>
-                        <canvas id="ricaviChart"></canvas>
-                    </div>
-                    <div class="bg-white rounded-lg shadow p-4">
-                        <h3 class="text-lg font-bold mb-4">Transazioni Recenti</h3>
-                        <div id="transazioniList"></div>
-                    </div>
-                </div>
-            </div>
-
+		    <!-- Sotto-tab per le transazioni -->
+		    <div class="mb-4 border-b border-gray-200">
+		        <ul class="flex flex-wrap -mb-px" id="finanzeTabs">
+		            <li class="mr-2">
+		                <button onclick="showFinanzeTab('tutte')" class="finanze-tab-btn inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-blue-600 hover:border-blue-600" data-tab="tutte">
+		                    Tutte le transazioni
+		                </button>
+		            </li>
+		            
+		            <li class="mr-2">
+		                <button onclick="showFinanzeTab('macchina')" class="finanze-tab-btn inline-block p-4 border-b-2 border-transparent rounded-t-lg hover:text-blue-600 hover:border-blue-600" data-tab="macchina">
+		                    Transazioni per macchina
+		                </button>
+		            </li>
+		        </ul>
+		    </div>
+		    
+		    <div class="bg-white rounded-lg shadow p-4">
+		        <!-- Tutte le transazioni -->
+		        <div id="tutteTab" class="finanze-tab-content">
+		            <h3 class="text-lg font-bold mb-4">Tutte le transazioni</h3>
+		            <div id="tutteTransazioniList" class="space-y-4">
+		                <div class="text-center text-gray-500">
+		                    <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...
+		                </div>
+		            </div>
+		        </div>
+		
+		        <!-- Transazioni per macchina -->
+		        <div id="macchinaTab" class="finanze-tab-content hidden">
+		            <h3 class="text-lg font-bold mb-4">Transazioni per macchina</h3>
+		            <div class="mb-4">
+		                <select id="macchinaSelect" class="px-3 py-2 border rounded w-full">
+		                    <option value="">Seleziona una macchina</option>
+		                    <!-- Le opzioni verranno popolate dinamicamente -->
+		                </select>
+		            </div>
+		            <div id="macchinaTransazioniList" class="space-y-4">
+		                <div class="text-center text-gray-500">
+		                    <i class="fas fa-spinner fa-spin mr-2"></i>Seleziona una macchina per vedere le transazioni.
+		                </div>
+		            </div>
+		        </div>
+		    </div>
+		</div>
             <!-- Utenti Tab -->
             <div id="utenti" class="tab-content hidden">
                 <div class="flex justify-between mb-4">
@@ -394,7 +457,6 @@
             tbody.innerHTML = '';
             
             istituti.forEach(istituto => {
-            	console.log(istituto);
                 const macchine = istituto.macchine ? istituto.macchine.length : 0;
                 const row = document.createElement('tr');
                 row.innerHTML = `
@@ -891,231 +953,367 @@ function getStatusClass (statoId) {
                 });
         }
         
+     // Gestione Tab Magazzino
+        function showMagazzinoTab(tabName) {
+            // Nascondi tutti i contenuti dei tab
+            document.querySelectorAll('.magazzino-tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Rimuovi la classe attiva da tutti i tab
+            document.querySelectorAll('.magazzino-tab-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'border-blue-600', 'border-b-2');
+                btn.classList.add('border-transparent');
+            });
+            
+            // Mostra il tab selezionato
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            document.querySelector(`.magazzino-tab-btn[data-tab="${tabName}"]`).classList.add('text-blue-600', 'border-blue-600', 'border-b-2');
+            document.querySelector(`.magazzino-tab-btn[data-tab="${tabName}"]`).classList.remove('border-transparent');
+            
+            // Carica i dati se necessario
+            if (tabName === 'bevande') {
+                loadBevande();
+            } else if (tabName === 'cialde') {
+                loadCialde();
+            }
+        }
+
         function loadMagazzino() {
-            // Carica le bevande e le cialde disponibili
+            // Mostra il primo tab di default
+            showMagazzinoTab('bevande');
+        }
+
+        function loadBevande() {
+            const bevandeList = document.getElementById('bevandeList');
+            bevandeList.innerHTML = '<div class="text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</div>';
+            
             axios.get(`${API_BASE_URL}/bevande`)
                 .then(response => {
                     const bevande = response.data;
-                    const scorteCialde = document.getElementById('scorteCialde');
-                    scorteCialde.innerHTML = '';
-
-                    if (bevande.length === 0) {
-                        scorteCialde.innerHTML = '<div class="text-gray-500">Nessuna bevanda disponibile</div>';
+                    bevandeList.innerHTML = '';
+                    
+                    if (!bevande || bevande.length === 0) {
+                        bevandeList.innerHTML = '<div class="text-center text-gray-500">Nessuna bevanda disponibile</div>';
                         return;
                     }
-
+                    
                     bevande.forEach(bevanda => {
-                        // Verifichiamo che cialde sia un array prima di utilizzarlo
-                        const cialdeArray = Array.isArray(bevanda.cialde) ? bevanda.cialde : [];
+                        const card = document.createElement('div');
+                        card.className = 'border rounded-lg shadow-sm p-4 bg-white';
                         
-                        const cialdeInfo = cialdeArray.length > 0 ? 
-                            cialdeArray.map(c => `${c.nome || 'Cialda #' + c.id}: ${c.quantita || 0}/${c.quantitaMassima || 0}`).join(', ') : 
-                            'Nessuna cialda';
+                        // Costruisci la lista delle cialde
+                        let cialdeHTML = '';
+                        if (bevanda.cialde && bevanda.cialde.length > 0) {
+                            cialdeHTML = `
+                                <div class="mt-2">
+                                    <h4 class="font-medium text-sm text-gray-600 mb-1">Composizione:</h4>
+                                    <ul class="list-disc list-inside text-sm">
+                                        ${bevanda.cialde.map(cialda => `
+                                            <li class="ml-2">${cialda.nome} (${cialda.tipoCialda})</li>
+                                        `).join('')}
+                                    </ul>
+                                </div>
+                            `;
+                        }
                         
-                        const div = document.createElement('div');
-                        div.className = 'p-3 border-b mb-2';
-                        div.innerHTML = `
-                            <div class="flex justify-between">
-                                <span class="font-medium">${bevanda.nome}</span>
-                                <span class="text-blue-600">€${bevanda.prezzo ? bevanda.prezzo.toFixed(2) : '0.00'}</span>
+                        card.innerHTML = `
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h3 class="text-lg font-bold text-blue-600">${bevanda.nome}</h3>
+                                    <p class="text-gray-600">Prezzo: €${bevanda.prezzo.toFixed(2)}</p>
+                                </div>
+                                <span class="bg-green-100 text-green-800 px-2 py-1 rounded text-xs font-medium">
+                                    <i class="fas fa-check-circle mr-1"></i>Disponibile
+                                </span>
                             </div>
-                            <div class="text-gray-600 text-sm">${cialdeInfo}</div>
+                            ${cialdeHTML}
                         `;
-                        scorteCialde.appendChild(div);
+                        
+                        bevandeList.appendChild(card);
                     });
                 })
                 .catch(error => {
                     console.error('Error loading bevande:', error);
-                    const scorteCialde = document.getElementById('scorteCialde');
-                    scorteCialde.innerHTML = '<div class="text-red-500">Errore nel caricamento delle bevande</div>';
-                });
-             // Carica le macchine che necessitano di rifornimento
-            axios.get(`${API_BASE_URL}/manutenzione`)
-                .then(response => {
-                    const manutenzioni = response.data || [];
-                    const rifornimentiList = document.getElementById('rifornimentiList');
-                    rifornimentiList.innerHTML = '';
-
-                    // Verifichiamo che manutenzioni sia un array valido
-                    if (!Array.isArray(manutenzioni) || manutenzioni.length === 0) {
-                        rifornimentiList.innerHTML = '<div class="text-gray-500">Nessun rifornimento necessario</div>';
-                        return;
-                    }
-
-                    // Filtra solo le manutenzioni di tipo RIFORNIMENTO_CIALDE o simili
-                    const rifornimenti = manutenzioni.filter(m => 
-                        m.tipoIntervento && 
-                        (m.tipoIntervento.includes('RIFORNIMENTO') || m.tipoIntervento.includes('CIALDA'))
-                    );
-                    
-                    if (rifornimenti.length === 0) {
-                        rifornimentiList.innerHTML = '<div class="text-gray-500">Nessun rifornimento necessario</div>';
-                        return;
-                    }
-                    
-                    rifornimenti.forEach(rifornimento => {
-                        const div = document.createElement('div');
-                        div.className = 'p-3 border-b mb-2';
-                        const urgenzaClass = rifornimento.urgenza === 'ALTA' ? 'text-red-600' : 
-                                        rifornimento.urgenza === 'MEDIA' ? 'text-yellow-600' : 'text-blue-600';
-                        
-                        div.innerHTML = `
-                            <div class="flex justify-between">
-                                <span class="font-medium">Macchina #${rifornimento.macchinaId}</span>
-                                <span class="${urgenzaClass}">Urgenza: ${rifornimento.urgenza || 'BASSA'}</span>
-                            </div>
-                            <div class="text-gray-600">${rifornimento.descrizione || 'Rifornimento cialde'}</div>
-                            <div class="text-xs text-gray-500 mt-1">
-                                Richiesta: ${new Date(rifornimento.dataRichiesta || Date.now()).toLocaleString()}
-                            </div>
-                        `;
-                        rifornimentiList.appendChild(div);
-                    });
-                })
-                .catch(error => {
-                    console.error('Error loading rifornimenti:', error);
-                    const rifornimentiList = document.getElementById('rifornimentiList');
-                    rifornimentiList.innerHTML = '<div class="text-red-500">Errore nel caricamento dei rifornimenti</div>';
+                    bevandeList.innerHTML = '<div class="text-center text-red-500"><i class="fas fa-exclamation-triangle mr-2"></i>Errore nel caricamento delle bevande</div>';
                 });
         }
+
+        function loadCialde() {
+            const cialdeList = document.getElementById('cialdeList');
+            cialdeList.innerHTML = '<div class="text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</div>';
+            
+            axios.get(`${API_BASE_URL}/admin/cialde`)
+                .then(response => {
+                    const cialde = response.data;
+                    cialdeList.innerHTML = '';
+                    
+                    if (!cialde || cialde.length === 0) {
+                        // Poiché non abbiamo l'API per le cialde, mostreremo dati di esempio
+                        const exampleCialde = [
+                            { nome: "Arabica", tipoCialda: "Caffè" },
+                            { nome: "Robusta", tipoCialda: "Caffè" },
+                            { nome: "Te verde", tipoCialda: "Tè" },
+                            { nome: "Cioccolato", tipoCialda: "Cacao" },
+                            { nome: "Ginseng", tipoCialda: "Caffè" },
+                            { nome: "Zucchero", tipoCialda: "Additivo" },
+                            { nome: "Latte", tipoCialda: "Additivo" }
+                        ];
+                        
+                        renderCialdeList(exampleCialde);
+                        return;
+                    }
+                    
+                    // Se abbiamo dati dall'API, li usiamo
+                    renderCialdeList(cialde);
+                })
+                .catch(error => {
+                    console.error('Error loading cialde:', error);
+                    
+                    // Fallback a dati di esempio in caso di errore
+                    const exampleCialde = [
+                        { nome: "Arabica", tipoCialda: "Caffè" },
+                        { nome: "Robusta", tipoCialda: "Caffè" },
+                        { nome: "Te verde", tipoCialda: "Tè" },
+                        { nome: "Cioccolato", tipoCialda: "Cacao" },
+                        { nome: "Ginseng", tipoCialda: "Caffè" },
+                        { nome: "Zucchero", tipoCialda: "Additivo" },
+                        { nome: "Latte", tipoCialda: "Additivo" }
+                    ];
+                    
+                    renderCialdeList(exampleCialde);
+                });
+        }
+
+        function renderCialdeList(cialde) {
+            const cialdeList = document.getElementById('cialdeList');
+            cialdeList.innerHTML = '';
+            
+            if (!cialde || cialde.length === 0) {
+                cialdeList.innerHTML = '<div class="text-center text-gray-500">Nessuna cialda disponibile</div>';
+                return;
+            }
+            
+            // Raggruppa le cialde per tipo
+            const cialdeByType = {};
+            cialde.forEach(cialda => {
+                if (!cialdeByType[cialda.tipoCialda]) {
+                    cialdeByType[cialda.tipoCialda] = [];
+                }
+                cialdeByType[cialda.tipoCialda].push(cialda);
+            });
+            
+            // Crea un contenitore per ogni tipo di cialda
+            Object.keys(cialdeByType).forEach(tipo => {
+                const tipoContainer = document.createElement('div');
+                tipoContainer.className = 'mb-6';
+                
+                let iconClass = 'coffee';
+                switch (tipo.toLowerCase()) {
+                    case 'tè':
+                    case 'te':
+                        iconClass = 'mug-hot';
+                        break;
+                    case 'cacao':
+                        iconClass = 'cookie';
+                        break;
+                    case 'additivo':
+                        iconClass = 'plus-circle';
+                        break;
+                }
+                
+                tipoContainer.innerHTML = `
+                    <h3 class="text-md font-bold mb-3 px-2 py-1 bg-gray-100 rounded flex items-center">
+                        <i class="fas fa-${iconClass} mr-2"></i>${tipo}
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3" id="cialde-${tipo.replace(/\s+/g, '-').toLowerCase()}">
+                    </div>
+                `;
+                
+                cialdeList.appendChild(tipoContainer);
+                
+                const cialdeGrid = document.getElementById(`cialde-${tipo.replace(/\s+/g, '-').toLowerCase()}`);
+                
+                // Aggiungi le cialde al contenitore del loro tipo
+                cialdeByType[tipo].forEach(cialda => {
+                    const card = document.createElement('div');
+                    card.className = 'border rounded-lg p-3 bg-white flex items-center';
+                    
+                    let statusClass = 'bg-green-100 text-green-800';
+                    let statusText = 'Disponibile';
+                    let quantitaText = '';
+                    
+                    // Se abbiamo informazioni sulla quantità
+                    if (cialda.quantita !== undefined && cialda.quantitaMassima !== undefined) {
+                        const percentuale = (cialda.quantita / cialda.quantitaMassima) * 100;
+                        quantitaText = `
+                            <div class="mt-1">
+                                <div class="text-xs text-gray-500">Quantità: ${cialda.quantita}/${cialda.quantitaMassima}</div>
+                                <div class="mt-1 bg-gray-200 rounded-full h-1.5">
+                                    <div class="bg-blue-600 h-1.5 rounded-full" style="width: ${percentuale}%"></div>
+                                </div>
+                            </div>
+                        `;
+                        
+                        if (percentuale < 20) {
+                            statusClass = 'bg-red-100 text-red-800';
+                            statusText = 'Scorta bassa';
+                        } else if (percentuale < 50) {
+                            statusClass = 'bg-yellow-100 text-yellow-800';
+                            statusText = 'In esaurimento';
+                        }
+                    }
+                    
+                    card.innerHTML = `
+                        <div class="flex-grow">
+                            <h4 class="font-medium">${cialda.nome}</h4>
+                            ${quantitaText}
+                        </div>
+                        <span class="${statusClass} px-2 py-1 rounded text-xs font-medium ml-2">
+                            ${statusText}
+                        </span>
+                    `;
+                    
+                    cialdeGrid.appendChild(card);
+                });
+            });
+        }
         
-        // Correzione per la funzione loadFinanze()
-        function loadFinanze() {
-            // Carica le transazioni per il grafico dei ricavi
+        function showFinanzeTab(tabName) {
+            // Nascondi tutti i contenuti dei tab
+            document.querySelectorAll('.finanze-tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+
+            // Rimuovi la classe attiva da tutti i tab
+            document.querySelectorAll('.finanze-tab-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'border-blue-600', 'border-b-2');
+                btn.classList.add('border-transparent');
+            });
+
+            // Mostra il tab selezionato
+            document.getElementById(tabName + 'Tab').classList.remove('hidden');
+            document.querySelector(`.finanze-tab-btn[data-tab="${tabName}"]`).classList.add('text-blue-600', 'border-blue-600', 'border-b-2');
+            document.querySelector(`.finanze-tab-btn[data-tab="${tabName}"]`).classList.remove('border-transparent');
+
+            // Carica i dati se necessario
+            if (tabName === 'tutte') {
+                loadTutteTransazioni();
+            } else{
+                loadMacchinePerTransazioni();
+            }
+        }
+
+        // Funzione per caricare tutte le transazioni
+        function loadTutteTransazioni() {
+            const tutteTransazioniList = document.getElementById('tutteTransazioniList');
+            tutteTransazioniList.innerHTML = '<div class="text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</div>';
+
             axios.get(`${API_BASE_URL}/admin/transazioni`)
                 .then(response => {
                     const transazioni = response.data || [];
-                    
-                    if (!Array.isArray(transazioni) || transazioni.length === 0) {
-                        // Se non ci sono transazioni, mostriamo un grafico vuoto
-                        renderEmptyChart('ricaviChart', 'Nessuna transazione disponibile');
-                        return;
-                    }
-                    
-                    // Raggruppa le transazioni per mese
-                    const ricaviPerMese = {};
-                    transazioni.forEach(t => {
-                        if (!t.dataOra) return; // Skip se non c'è data
-                        
-                        // Estrai anno-mese dalla data (assumendo che dataOra sia nel formato ISO)
-                        try {
-                            const data = new Date(t.dataOra);
-                            if (isNaN(data.getTime())) return; // Skip se la data non è valida
-                            
-                            const mese = `${data.getFullYear()}-${String(data.getMonth() + 1).padStart(2, '0')}`;
-                            
-                            if (!ricaviPerMese[mese]) {
-                                ricaviPerMese[mese] = 0;
-                            }
-                            
-                            // Assicurati che l'importo sia un numero
-                            const importo = parseFloat(t.importo);
-                            if (!isNaN(importo)) {
-                                ricaviPerMese[mese] += importo;
-                            }
-                        } catch (e) {
-                            console.error('Errore nell\'elaborazione della data:', e);
-                        }
-                    });
-                    
-                    // Converti in array per il grafico
-                    const labels = Object.keys(ricaviPerMese).sort();
-                    const data = labels.map(mese => ricaviPerMese[mese]);
-                    
-                    // Se dopo il filtraggio non abbiamo dati, mostra grafico vuoto
-                    if (labels.length === 0) {
-                        renderEmptyChart('ricaviChart', 'Nessun dato valido disponibile');
-                        return;
-                    }
-                    
-                    const ricaviCtx = document.getElementById('ricaviChart').getContext('2d');
-                    new Chart(ricaviCtx, {
-                        type: 'line',
-                        data: {
-                            labels: labels,
-                            datasets: [{
-                                label: 'Ricavi Mensili (€)',
-                                data: data,
-                                borderColor: 'rgb(59, 130, 246)',
-                                backgroundColor: 'rgba(59, 130, 246, 0.1)',
-                                fill: true,
-                                tension: 0.1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            plugins: {
-                                legend: {
-                                    position: 'top',
-                                },
-                                tooltip: {
-                                    callbacks: {
-                                        label: function(context) {
-                                            return `€ ${context.raw.toFixed(2)}`;
-                                        }
-                                    }
-                                }
-                            },
-                            scales: {
-                                y: {
-                                    beginAtZero: true,
-                                    ticks: {
-                                        callback: function(value) {
-                                            return '€ ' + value;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    });
-                })
-                .catch(error => {
-                    console.error('Error loading ricavi:', error);
-                    renderEmptyChart('ricaviChart', 'Errore nel caricamento dei dati');
-                });
-
-            // Carica le transazioni recenti
-            axios.get(`${API_BASE_URL}/admin/transazioni/recenti`)
-                .then(response => {
-                    const transazioni = Array.isArray(response.data) ? response.data : [];
-                    const transazioniList = document.getElementById('transazioniList');
-                    transazioniList.innerHTML = '';
+                    tutteTransazioniList.innerHTML = '';
 
                     if (transazioni.length === 0) {
-                        transazioniList.innerHTML = '<div class="text-gray-500">Nessuna transazione recente</div>';
+                        tutteTransazioniList.innerHTML = '<div class="text-center text-gray-500">Nessuna transazione disponibile</div>';
                         return;
                     }
 
                     transazioni.forEach(transazione => {
-                        const div = document.createElement('div');
-                        div.className = 'p-3 border-b mb-2';
-                        
-                        // Verifica che i dati esistano prima di usarli
-                        const bevandaNome = transazione.nomeBevanda || `Bevanda #${transazione.bevandaId || 'N/D'}`;
-                        const importo = parseFloat(transazione.importo);
-                        const dataOra = transazione.dataOra ? new Date(transazione.dataOra) : null;
-                        const formattedDate = dataOra && !isNaN(dataOra.getTime()) ? 
-                            dataOra.toLocaleString() : 'Data non disponibile';
-                        
-                        div.innerHTML = `
+                        const card = document.createElement('div');
+                        card.className = 'border rounded-lg shadow-sm p-4 bg-white';
+                        card.innerHTML = `
                             <div class="flex justify-between">
-                                <span class="font-medium">${bevandaNome}</span>
-                                <span class="text-green-600">€${!isNaN(importo) ? importo.toFixed(2) : '0.00'}</span>
+                                <span class="font-medium">Transazione #${transazione.id}</span>
+                                <span class="text-green-600">€${transazione.importo.toFixed(2)}</span>
                             </div>
-                            <div class="flex justify-between text-sm">
-                                <span class="text-gray-600">Macchina #${transazione.macchinaId || 'N/D'}</span>
-                                <span class="text-gray-500">${formattedDate}</span>
-                            </div>
+                            <div class="text-sm text-gray-600">Macchina #${transazione.macchinaId}</div>
+                            <div class="text-sm text-gray-600">Data: ${new Date(transazione.dataOra).toLocaleString()}</div>
                         `;
-                        transazioniList.appendChild(div);
+                        tutteTransazioniList.appendChild(card);
                     });
                 })
                 .catch(error => {
-                    console.error('Error loading transazioni:', error);
-                    const transazioniList = document.getElementById('transazioniList');
-                    transazioniList.innerHTML = '<div class="text-red-500">Errore nel caricamento delle transazioni</div>';
+                    console.error('Error loading tutte transazioni:', error);
+                    tutteTransazioniList.innerHTML = '<div class="text-center text-red-500">Errore nel caricamento delle transazioni</div>';
                 });
         }
+
+        
+
+        // Funzione per caricare le macchine per le transazioni
+        function loadMacchinePerTransazioni() {
+            const macchinaSelect = document.getElementById('macchinaSelect');
+            const macchinaTransazioniList = document.getElementById('macchinaTransazioniList');
+
+            // Carica le macchine disponibili
+            axios.get(`${API_BASE_URL}/macchine`)
+                .then(response => {
+                    const macchine = response.data || [];
+                    macchinaSelect.innerHTML = '<option value="">Seleziona una macchina</option>';
+
+                    macchine.forEach(macchina => {
+                        const option = document.createElement('option');
+                        option.value = macchina.id;
+                        option.textContent = `Macchina #${macchina.id} - ${macchina.nomeIstituto}`;
+                        macchinaSelect.appendChild(option);
+                    });
+
+                    // Aggiungi un listener per il cambio di selezione
+                    macchinaSelect.addEventListener('change', (event) => {
+                        const macchinaId = event.target.value;
+                        if (macchinaId) {
+                            loadTransazioniPerMacchina(macchinaId);
+                        } else {
+                            macchinaTransazioniList.innerHTML = '<div class="text-center text-gray-500">Seleziona una macchina per vedere le transazioni.</div>';
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading macchine:', error);
+                    macchinaSelect.innerHTML = '<option value="">Errore nel caricamento delle macchine</option>';
+                });
+        }
+
+        // Funzione per caricare le transazioni per una macchina specifica
+        function loadTransazioniPerMacchina(macchinaId) {
+            const macchinaTransazioniList = document.getElementById('macchinaTransazioniList');
+            macchinaTransazioniList.innerHTML = '<div class="text-center text-gray-500"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento...</div>';
+
+            axios.get(`${API_BASE_URL}/admin/transazioni/macchina/${macchinaId}`)
+                .then(response => {
+                    const transazioni = response.data || [];
+                    macchinaTransazioniList.innerHTML = '';
+
+                    if (transazioni.length === 0) {
+                        macchinaTransazioniList.innerHTML = '<div class="text-center text-gray-500">Nessuna transazione per questa macchina</div>';
+                        return;
+                    }
+
+                    transazioni.forEach(transazione => {
+                        const card = document.createElement('div');
+                        card.className = 'border rounded-lg shadow-sm p-4 bg-white';
+                        card.innerHTML = `
+                            <div class="flex justify-between">
+                                <span class="font-medium">Transazione #${transazione.id}</span>
+                                <span class="text-green-600">€${transazione.importo.toFixed(2)}</span>
+                            </div>
+                            <div class="text-sm text-gray-600">Data: ${new Date(transazione.dataOra).toLocaleString()}</div>
+                        `;
+                        macchinaTransazioniList.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading transazioni per macchina:', error);
+                    macchinaTransazioniList.innerHTML = '<div class="text-center text-red-500">Errore nel caricamento delle transazioni</div>';
+                });
+        }
+
+        // Inizializzazione della sezione finanze
+        function loadFinanze() {
+            showFinanzeTab('tutte'); // Mostra il tab "Tutte le transazioni" di default
+        }
+
         
         function loadUtenti() {
             axios.get(`${API_BASE_URL}/admin/utenti`)
@@ -1199,8 +1397,15 @@ function getStatusClass (statoId) {
                     });
             }
         }
-
-        // Funzione helper per renderizzare un grafico vuoto con messaggio
+        function getStatoClass(statoId) {
+            switch(statoId) {
+                case 1: return 'bg-green-100 text-green-800'; // Attiva
+                case 2: return 'bg-yellow-100 text-yellow-800'; // In manutenzione
+                case 3: return 'bg-red-100 text-red-800'; // Fuori servizio
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+        
         function renderEmptyChart(canvasId, message) {
             const ctx = document.getElementById(canvasId).getContext('2d');
             new Chart(ctx, {
@@ -1262,182 +1467,173 @@ function getStatusClass (statoId) {
         }
         
         function loadMonitoraggio() {
-    // Carica le macchine e il loro stato
-    axios.get(`${API_BASE_URL}/macchine`)
-        .then(response => {
-            const macchine = Array.isArray(response.data) ? response.data : [];
-            const statoSistemaDiv = document.getElementById('statoSistema');
-            
-            if (macchine.length === 0) {
-                statoSistemaDiv.innerHTML = '<div class="text-gray-500">Nessuna macchina disponibile</div>';
-                renderEmptyChart('performanceChart', 'Nessuna macchina disponibile');
-                return;
-            }
-            
-            // Calcola lo stato generale del sistema
-            const totale = macchine.length;
-            const attive = macchine.filter(m => m.statoId === 1).length;
-            const inManutenzione = macchine.filter(m => m.statoId === 2).length;
-            const fuoriServizio = macchine.filter(m => m.statoId === 3).length;
-            
-            const percentualeAttive = totale > 0 ? (attive / totale * 100).toFixed(0) : 0;
-            
-            const statoClasse = percentualeAttive > 80 ? 'text-green-600' : 
-                               percentualeAttive > 50 ? 'text-yellow-600' : 'text-red-600';
-            
-            const statoDescrizione = percentualeAttive > 80 ? 
-                "Sistema funzionante correttamente" : 
-                percentualeAttive > 50 ? 
-                    "Sistema parzialmente funzionante" : 
-                    "Sistema compromesso";
-            
-            statoSistemaDiv.innerHTML = `
-                <div class="flex items-center mb-4">
-                    <div class="w-16 h-16 rounded-full flex items-center justify-center ${statoClasse} bg-gray-100 mr-4">
-                        <span class="text-2xl font-bold">${percentualeAttive}%</span>
-                    </div>
-                    <div>
-                        <div class="text-lg font-medium">${statoDescrizione}</div>
-                        <div class="text-gray-600 text-sm">${attive} macchine attive su ${totale}</div>
-                    </div>
-                </div>
-                
-                <div class="grid grid-cols-3 gap-2 text-center">
-                    <div class="bg-green-100 p-2 rounded">
-                        <div class="text-green-600 font-bold">${attive}</div>
-                        <div class="text-sm">Attive</div>
-                    </div>
-                    <div class="bg-yellow-100 p-2 rounded">
-                        <div class="text-yellow-600 font-bold">${inManutenzione}</div>
-                        <div class="text-sm">In Manutenzione</div>
-                    </div>
-                    <div class="bg-red-100 p-2 rounded">
-                        <div class="text-red-600 font-bold">${fuoriServizio}</div>
-                        <div class="text-sm">Fuori Servizio</div>
-                    </div>
-                </div>
-            `;
-            
-            // Crea il grafico delle performance
-            const perfCtx = document.getElementById('performanceChart').getContext('2d');
-            new Chart(perfCtx, {
-                type: 'doughnut',
-                data: {
-                    labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
-                    datasets: [{
-                        data: [attive, inManutenzione, fuoriServizio],
-                        backgroundColor: [
-                            'rgb(34, 197, 94)',
-                            'rgb(234, 179, 8)',
-                            'rgb(239, 68, 68)'
-                        ]
-                    }]
-                },
-                options: {
-                    responsive: true,
-                    plugins: {
-                        legend: {
-                            position: 'bottom'
+            // Carica le macchine e il loro stato
+            axios.get(`${API_BASE_URL}/macchine`)
+                .then(response => {
+                    const macchine = Array.isArray(response.data) ? response.data : [];
+                    const statoSistemaDiv = document.getElementById('statoSistema');
+                    
+                    if (macchine.length === 0) {
+                        statoSistemaDiv.innerHTML = '<div class="text-gray-500">Nessuna macchina disponibile</div>';
+                        renderEmptyChart('performanceChart', 'Nessuna macchina disponibile');
+                        return;
+                    }
+                    
+                    // Calcola lo stato generale del sistema
+                    const totale = macchine.length;
+                    const attive = macchine.filter(m => m.statoId === 1).length;
+                    const inManutenzione = macchine.filter(m => m.statoId === 2).length;
+                    const fuoriServizio = macchine.filter(m => m.statoId === 3).length;
+                    
+                    const percentualeAttive = totale > 0 ? (attive / totale * 100).toFixed(0) : 0;
+                    
+                    const statoClasse = percentualeAttive > 80 ? 'text-green-600' : 
+                                       percentualeAttive > 50 ? 'text-yellow-600' : 'text-red-600';
+                    
+                    const statoDescrizione = percentualeAttive > 80 ? 
+                        "Sistema funzionante correttamente" : 
+                        percentualeAttive > 50 ? 
+                            "Sistema parzialmente funzionante" : 
+                            "Sistema compromesso";
+                    
+                    statoSistemaDiv.innerHTML = `
+                        <div class="flex items-center mb-4">
+                            <div class="w-16 h-16 rounded-full flex items-center justify-center ${statoClasse} bg-gray-100 mr-4">
+                                <span class="text-2xl font-bold">${percentualeAttive}%</span>
+                            </div>
+                            <div>
+                                <div class="text-lg font-medium">${statoDescrizione}</div>
+                                <div class="text-gray-600 text-sm">${attive} macchine attive su ${totale}</div>
+                            </div>
+                        </div>
+                        
+                        <div class="grid grid-cols-3 gap-2 text-center">
+                            <div class="bg-green-100 p-2 rounded">
+                                <div class="text-green-600 font-bold">${attive}</div>
+                                <div class="text-sm">Attive</div>
+                            </div>
+                            <div class="bg-yellow-100 p-2 rounded">
+                                <div class="text-yellow-600 font-bold">${inManutenzione}</div>
+                                <div class="text-sm">In Manutenzione</div>
+                            </div>
+                            <div class="bg-red-100 p-2 rounded">
+                                <div class="text-red-600 font-bold">${fuoriServizio}</div>
+                                <div class="text-sm">Fuori Servizio</div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Crea il grafico delle performance
+                    const perfCtx = document.getElementById('performanceChart').getContext('2d');
+                    new Chart(perfCtx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Attive', 'In Manutenzione', 'Fuori Servizio'],
+                            datasets: [{
+                                data: [attive, inManutenzione, fuoriServizio],
+                                backgroundColor: [
+                                    'rgb(34, 197, 94)',
+                                    'rgb(234, 179, 8)',
+                                    'rgb(239, 68, 68)'
+                                ]
+                            }]
                         },
-                        tooltip: {
-                            callbacks: {
-                                label: function(context) {
-                                    const value = context.raw;
-                                    const percentage = Math.round((value / totale) * 100);
-                                    return `${context.label}: ${value} (${percentage}%)`;
+                        options: {
+                            responsive: true,
+                            plugins: {
+                                legend: {
+                                    position: 'bottom'
+                                },
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            const value = context.raw;
+                                            const percentage = Math.round((value / totale) * 100);
+                                            return `${context.label}: ${value} (${percentage}%)`;
+                                        }
+                                    }
                                 }
+                            },
+                            cutout: '60%'
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading macchine:', error);
+                    const statoSistemaDiv = document.getElementById('statoSistema');
+                    statoSistemaDiv.innerHTML = '<div class="text-red-500">Errore nel caricamento dello stato del sistema</div>';
+                    renderEmptyChart('performanceChart', 'Errore nel caricamento dei dati');
+                });
+
+            // Carica le manutenzioni attive (allarmi)
+            axios.get(`${API_BASE_URL}/manutenzione`)
+                .then(response => {
+                    const manutenzioni = Array.isArray(response.data) ? 
+                        response.data.filter(m => m.stato !== "COMPLETATA") : [];
+                    
+                    const allarmiList = document.getElementById('allarmiList');
+                    allarmiList.innerHTML = '';
+
+                    if (manutenzioni.length === 0) {
+                        allarmiList.innerHTML = `
+                            <div class="text-center py-4">
+                                <i class="fas fa-check-circle text-green-500 text-2xl mb-2"></i>
+                                <div class="text-green-600">Nessun allarme attivo</div>
+                            </div>
+                        `;
+                        return;
+                    }
+
+                    manutenzioni.forEach(manutenzione => {
+                        // Verifica che i dati esistano prima di usarli
+                        const urgenza = manutenzione.urgenza || 'BASSA';
+                        const tipoIntervento = manutenzione.tipoIntervento || 'Manutenzione generica';
+                        const descrizione = manutenzione.descrizione || 'Nessuna descrizione';
+                        
+                        let borderClass = 'border-blue-500 bg-blue-50';
+                        if (urgenza === 'ALTA') {
+                            borderClass = 'border-red-500 bg-red-50';
+                        } else if (urgenza === 'MEDIA') {
+                            borderClass = 'border-yellow-500 bg-yellow-50';
+                        }
+                        
+                        const div = document.createElement('div');
+                        div.className = `mb-3 p-3 border-l-4 ${borderClass}`;
+                        
+                        let dataRichiesta = 'Data non disponibile';
+                        if (manutenzione.dataRichiesta) {
+                            try {
+                                const data = new Date(manutenzione.dataRichiesta);
+                                if (!isNaN(data.getTime())) {
+                                    dataRichiesta = data.toLocaleString();
+                                }
+                            } catch (e) {
+                                console.error('Errore nella formattazione della data:', e);
                             }
                         }
-                    },
-                    cutout: '60%'
-                }
-            });
-        })
-        .catch(error => {
-            console.error('Error loading macchine:', error);
-            const statoSistemaDiv = document.getElementById('statoSistema');
-            statoSistemaDiv.innerHTML = '<div class="text-red-500">Errore nel caricamento dello stato del sistema</div>';
-            renderEmptyChart('performanceChart', 'Errore nel caricamento dei dati');
-        });
-
-    // Carica le manutenzioni attive (allarmi)
-    axios.get(`${API_BASE_URL}/manutenzione`)
-        .then(response => {
-            const manutenzioni = Array.isArray(response.data) ? 
-                response.data.filter(m => m.stato !== "COMPLETATA") : [];
-            
-            const allarmiList = document.getElementById('allarmiList');
-            allarmiList.innerHTML = '';
-
-            if (manutenzioni.length === 0) {
-                allarmiList.innerHTML = `
-                    <div class="text-center py-4">
-                        <i class="fas fa-check-circle text-green-500 text-2xl mb-2"></i>
-                        <div class="text-green-600">Nessun allarme attivo</div>
-                    </div>
-                `;
-                return;
-            }
-
-            manutenzioni.forEach(manutenzione => {
-                // Verifica che i dati esistano prima di usarli
-                const urgenza = manutenzione.urgenza || 'BASSA';
-                const tipoIntervento = manutenzione.tipoIntervento || 'Manutenzione generica';
-                const descrizione = manutenzione.descrizione || 'Nessuna descrizione';
-                
-                let borderClass = 'border-blue-500 bg-blue-50';
-                if (urgenza === 'ALTA') {
-                    borderClass = 'border-red-500 bg-red-50';
-                } else if (urgenza === 'MEDIA') {
-                    borderClass = 'border-yellow-500 bg-yellow-50';
-                }
-                
-                const div = document.createElement('div');
-                div.className = `mb-3 p-3 border-l-4 ${borderClass}`;
-                
-                let dataRichiesta = 'Data non disponibile';
-                if (manutenzione.dataRichiesta) {
-                    try {
-                        const data = new Date(manutenzione.dataRichiesta);
-                        if (!isNaN(data.getTime())) {
-                            dataRichiesta = data.toLocaleString();
-                        }
-                    } catch (e) {
-                        console.error('Errore nella formattazione della data:', e);
-                    }
-                }
-                
-                div.innerHTML = `
-                    <div class="flex justify-between">
-                        <span class="font-medium">Macchina #${manutenzione.macchinaId || 'N/D'}</span>
-                        <span class="text-sm font-medium ${urgenza === 'ALTA' ? 'text-red-600' : 
-                                         urgenza === 'MEDIA' ? 'text-yellow-600' : 'text-blue-600'}">
-                            ${urgenza}
-                        </span>
-                    </div>
-                    <div class="text-gray-800">${tipoIntervento}</div>
-                    <div class="text-sm text-gray-600 mt-1">${descrizione}</div>
-                    <div class="text-xs text-gray-500 mt-2">
-                        Richiesta: ${dataRichiesta}
-                    </div>
-                `;
-                allarmiList.appendChild(div);
-            });
-        })
-        .catch(error => {
-            console.error('Error loading allarmi:', error);
-            const allarmiList = document.getElementById('allarmiList');
-            allarmiList.innerHTML = '<div class="text-red-500">Errore nel caricamento degli allarmi</div>';
-        });
-}
-
-        function getStatoClass(statoId) {
-            switch(statoId) {
-                case 1: return 'bg-green-100 text-green-800'; // Attiva
-                case 2: return 'bg-yellow-100 text-yellow-800'; // In manutenzione
-                case 3: return 'bg-red-100 text-red-800'; // Fuori servizio
-                default: return 'bg-gray-100 text-gray-800';
-            }
+                        
+                        div.innerHTML = `
+                            <div class="flex justify-between">
+                                <span class="font-medium">Macchina #${manutenzione.macchinaId || 'N/D'}</span>
+                                <span class="text-sm font-medium ${urgenza === 'ALTA' ? 'text-red-600' : 
+                                                 urgenza === 'MEDIA' ? 'text-yellow-600' : 'text-blue-600'}">
+                                    ${urgenza}
+                                </span>
+                            </div>
+                            <div class="text-gray-800">${tipoIntervento}</div>
+                            <div class="text-sm text-gray-600 mt-1">${descrizione}</div>
+                            <div class="text-xs text-gray-500 mt-2">
+                                Richiesta: ${dataRichiesta}
+                            </div>
+                        `;
+                        allarmiList.appendChild(div);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading allarmi:', error);
+                    const allarmiList = document.getElementById('allarmiList');
+                    allarmiList.innerHTML = '<div class="text-red-500">Errore nel caricamento degli allarmi</div>';
+                });
         }
 
         // Initialize Charts

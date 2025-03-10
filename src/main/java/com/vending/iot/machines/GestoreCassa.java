@@ -153,6 +153,7 @@ public class GestoreCassa {
 
         if (puoAccettareImporto(importo)) {
             creditoAttuale.updateAndGet(credito -> credito + importo);
+            cassaAttuale.updateAndGet(credito -> credito + importo);
             logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale.get(), idMacchina);
             double att = creditoAttuale.get();
             pubblicaStatoCredito();
@@ -224,6 +225,7 @@ public class GestoreCassa {
             String topic = "macchine/" + idMacchina + "/cassa/stato";
             Map<String, Object> stato = Map.of(
                     "cassaAttuale", cassaAttuale.get(),
+                    "creditoAttuale", creditoAttuale.get(),
                     "cassaMassima", cassaMassima,
                     "percentualeOccupazione", (cassaAttuale.get() / cassaMassima) * 100,
                     "timestamp", System.currentTimeMillis()

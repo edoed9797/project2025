@@ -27,6 +27,11 @@ public class CialdaRepository {
      *
      * @return lista di tutte le cialde
      */
+    /**
+     * Trova tutte le cialde disponibili.
+     *
+     * @return lista di tutte le cialde
+     */
     public List<Cialda> findAll() {
         List<Cialda> cialde = new ArrayList<>();
         String sql = "SELECT * FROM cialda";
@@ -36,7 +41,8 @@ public class CialdaRepository {
              ResultSet rs = stmt.executeQuery(sql)) {
             
             while (rs.next()) {
-                cialde.add(mapResultSetToCialda(rs));
+                Cialda cialda = mapResultSetToCialda(rs);
+                cialde.add(cialda);
             }
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il recupero delle cialde", e);

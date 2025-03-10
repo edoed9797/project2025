@@ -1,0 +1,2113 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard Tecnico - Sistema Distributori</title>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/tailwindcss/2.2.19/tailwind.min.css" rel="stylesheet">
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.0/chart.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <!-- Paho MQTT client -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/paho-mqtt/1.0.1/mqttws31.min.js"></script>
+    <style>
+    .status-available {
+        background-color: green;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .status-maintenance {
+        background-color: yellow;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .status-inactive {
+        background-color: #fd0006;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    
+    .status-unknown {
+        background-color: gray;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    }
+    .status-badge {
+        display: inline-block;
+        width: 12px;
+        height: 12px;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+
+    .urgency-alta {
+        border-left-color: #ef4444;
+        background-color: #fee2e2;
+    }
+
+    .urgency-media {
+        border-left-color: #f59e0b;
+        background-color: #fef3c7;
+    }
+
+    .urgency-bassa {
+        border-left-color: #3b82f6;
+        background-color: #dbeafe;
+    }
+
+    .notification-dot {
+        position: absolute;
+        top: -2px;
+        right: -2px;
+        width: 10px;
+        height: 10px;
+        background-color: #ef4444;
+        border-radius: 50%;
+    }
+
+    #notifichePanel {
+        position: absolute;
+        top: 60px;
+        right: 20px;
+        width: 300px;
+        max-height: 400px;
+        overflow-y: auto;
+        background-color: white;
+        border-radius: 8px;
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        z-index: 10;
+    }
+    </style>
+</head>
+<body class="bg-gray-100">
+    <!-- Navigation -->
+    <nav class="bg-blue-600 text-white p-4" style="background-color:grey">
+        <div class="container mx-auto flex justify-between items-center">
+            <h1 class="text-2xl font-bold">Dashboard Tecnico Manutenzione</h1>
+            <div>
+                <span id="userInfo" class="mr-3"></span>
+                <button onclick="window.location.href = '/index.html'" class="bg-blue-500 px-3 py-2 rounded hover:bg-blue-600">
+                    Home
+                </button>
+            </div>
+            <div class="relative">
+                <button id="notificheBtn" class="bg-blue-500 px-3 py-2 mr-3 rounded hover:bg-blue-600 relative">
+                    <i class="fa-solid fa-bell"></i>
+                    <span id="notificationDot" class="notification-dot hidden"></span>
+                </button>
+                <div id="notifichePanel" class="hidden p-2">
+                    <h3 class="font-bold text-gray-700 p-2 border-b">Notifiche</h3>
+                    <div id="notificheList" class="p-2">
+                        <!-- Contenuto delle notifiche -->
+                    </div>
+                </div>
+            </div>
+            <div>
+                <span id="userNameDisplay" class="user-info">
+                    <span id="userName"></span>
+                    <i class="fas fa-user"></i>
+                </span>
+                <button onclick="logout()" class="bg-red-500 px-3 py-2 rounded hover:bg-red-600">
+                    Logout
+                </button>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Content -->
+    <div class="container mx-auto p-4">
+        <!-- Dashboard Summary -->
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-blue-100 text-blue-600 mr-4">
+                        <i class="fas fa-tools text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Interventi Assegnati</p>
+                        <h3 id="interventiAssegnatiCounter" class="text-2xl font-bold">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-green-100 text-green-600 mr-4">
+                        <i class="fas fa-check text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Interventi Completati</p>
+                        <h3 id="interventiCompletatiCounter" class="text-2xl font-bold">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-red-100 text-red-600 mr-4">
+                        <i class="fas fa-exclamation text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Interventi Urgenti</p>
+                        <h3 id="interventiUrgentiCounter" class="text-2xl font-bold">0</h3>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-white rounded-lg shadow p-4">
+                <div class="flex items-center">
+                    <div class="p-3 rounded-full bg-purple-100 text-purple-600 mr-4">
+                        <i class="fas fa-coffee text-xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-gray-500 text-sm">Macchine Attive</p>
+                        <h3 id="macchineAttiveCounter" class="text-2xl font-bold">0</h3>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="mb-4 border-b border-gray-200">
+            <ul class="flex flex-wrap -mb-px" id="myTab">
+                <li class="mr-2">
+                    <button onclick="showTab('interventiAttivi')" class="tab-btn inline-block p-4" data-tab="interventiAttivi">
+                        <i class="fas fa-clipboard-list mr-2"></i>Interventi Attivi
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('dettaglioMacchina')" class="tab-btn inline-block p-4" data-tab="dettaglioMacchina">
+                        <i class="fas fa-coffee mr-2"></i>Dettaglio Macchina
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('rifornimentoCialde')" class="tab-btn inline-block p-4" data-tab="rifornimentoCialde">
+                        <i class="fas fa-box mr-2"></i>Rifornimento Cialde
+                    </button>
+                </li>
+                <li class="mr-2">
+                    <button onclick="showTab('storicoInterventi')" class="tab-btn inline-block p-4" data-tab="storicoInterventi">
+                        <i class="fas fa-history mr-2"></i>Storico Interventi
+                    </button>
+                </li>
+                <li class="mr-2">
+				    <button onclick="showTab('monitorMacchine')" class="tab-btn inline-block p-4" data-tab="monitorMacchine">
+				        <i class="fas fa-desktop mr-2"></i>Monitor Macchine
+				    </button>
+				</li>
+            </ul>
+        </div>
+
+        <!-- Tab Contents -->
+        <div id="tabContents">
+            <!-- Interventi Attivi Tab -->
+            <div id="interventiAttivi" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Interventi Assegnati</h2>
+                    <div>
+                        <select id="filtroUrgenza" class="border rounded p-2 mr-2">
+                            <option value="">Tutte le urgenze</option>
+                            <option value="ALTA">Alta urgenza</option>
+                            <option value="MEDIA">Media urgenza</option>
+                            <option value="BASSA">Bassa urgenza</option>
+                        </select>
+                        <select id="filtroTipo" class="border rounded p-2">
+                            <option value="">Tutti i tipi</option>
+                            <option value="GUASTO">Guasto</option>
+                            <option value="RIFORNIMENTO_CIALDE">Rifornimento cialde</option>
+                            <option value="SVUOTAMENTO_CASSA">Svuotamento cassa</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div id="interventiList" class="divide-y divide-gray-200">
+                        <!-- Populated by JavaScript -->
+                        <div class="text-center text-gray-500 py-4">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento interventi...
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Dettaglio Macchina Tab -->
+            <div id="dettaglioMacchina" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Dettaglio Macchina</h2>
+                    <div>
+                        <select id="selezionaMacchina" class="border rounded p-2">
+                            <option value="">Seleziona una macchina</option>
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
+                </div>
+                <div id="dettaglioMacchinaContent" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-3">Informazioni Generali</h3>
+                        <div id="infoGenerali">
+                            <p class="text-gray-500">Seleziona una macchina per visualizzare i dettagli</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-3">Stato Cialde</h3>
+                        <div id="statoCialde">
+                            <p class="text-gray-500">Seleziona una macchina per visualizzare i dettagli</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-3">Stato Cassa</h3>
+                        <div id="statoCassa">
+                            <p class="text-gray-500">Seleziona una macchina per visualizzare i dettagli</p>
+                        </div>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4 md:col-span-3">
+                        <h3 class="text-lg font-bold mb-3">Storico Interventi Macchina</h3>
+                        <div id="storicoInterventiMacchina">
+                            <p class="text-gray-500">Seleziona una macchina per visualizzare lo storico interventi</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Rifornimento Cialde Tab -->
+            <div id="rifornimentoCialde" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Rifornimento Cialde</h2>
+                    <div>
+                        <select id="macchinaRifornimento" class="border rounded p-2">
+                            <option value="">Seleziona una macchina</option>
+                            <!-- Populated by JavaScript -->
+                        </select>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <div id="rifornimentoInfo" class="mb-4">
+                        <div class="alert bg-blue-100 text-blue-800 p-4 rounded">
+                            <i class="fas fa-info-circle mr-2"></i>
+                            Seleziona una macchina per visualizzare il dettaglio delle cialde da rifornire. Il sistema suggerirà le quantità in base al consumo storico.
+                        </div>
+                    </div>
+                    <div id="rifornimentoCialdeList" class="mt-4">
+                        <!-- Populated by JavaScript -->
+                    </div>
+                    <div id="rifornimentoActions" class="mt-6 text-right hidden">
+                        <button id="registraRifornimentoBtn" class="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600">
+                            <i class="fas fa-check mr-2"></i>Registra Rifornimento
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <!-- Monitor Macchine Tab -->
+				<div id="monitorMacchine" class="tab-content hidden">
+				    <!-- Status Bar -->
+				    <div class="bg-white rounded-lg shadow p-4 mb-6">
+				        <div class="flex justify-between items-center">
+				            <div class="flex items-center">
+				                <i id="mqttStatus" class="fas fa-signal mr-2 text-red-500"></i>
+				                <span id="mqttStatusText">MQTT: Disconnesso</span>
+				            </div>
+				            <div class="flex space-x-6">
+				                <div class="flex items-center">
+				                    <i class="fas fa-check-circle text-green-500 mr-2"></i>
+				                    <span>Attive: <span id="activeCount">0</span></span>
+				                </div>
+				                <div class="flex items-center">
+				                    <i class="fas fa-wrench text-yellow-500 mr-2"></i>
+				                    <span>In Manutenzione: <span id="maintenanceCount">0</span></span>
+				                </div>
+				                <div class="flex items-center">
+				                    <i class="fas fa-exclamation-circle text-red-500 mr-2"></i>
+				                    <span>Fuori Servizio: <span id="errorCount">0</span></span>
+				                </div>
+				            </div>
+				        </div>
+				    </div>
+				
+				    <!-- Machines Grid -->
+				    <div id="machinesGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mb-6">
+				        <!-- Populated by JavaScript -->
+				    </div>
+				
+				    <!-- Alerts Section -->
+				    <div class="bg-white rounded-lg shadow p-4">
+				        <h2 class="text-xl font-bold mb-4">Ultimi Allarmi</h2>
+				        <div id="alertsList" class="space-y-4">
+				            <!-- Populated by JavaScript -->
+				        </div>
+				    </div>
+				</div>
+            <!-- Storico Interventi Tab -->
+            <div id="storicoInterventi" class="tab-content hidden">
+                <div class="flex justify-between mb-4">
+                    <h2 class="text-xl font-bold">Storico Interventi</h2>
+                    <div>
+                        <select id="periodoFiltro" class="border rounded p-2 mr-2">
+                            <option value="7">Ultimi 7 giorni</option>
+                            <option value="30">Ultimi 30 giorni</option>
+                            <option value="90">Ultimi 3 mesi</option>
+                            <option value="all">Tutti</option>
+                        </select>
+                        <button id="esportaReportBtn" class="bg-blue-500 text-white px-3 py-2 rounded hover:bg-blue-600">
+                            <i class="fas fa-file-download mr-2"></i>Esporta Report
+                        </button>
+                    </div>
+                </div>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-3">Riepilogo Attività</h3>
+                        <canvas id="interventiChart" height="200"></canvas>
+                    </div>
+                    <div class="bg-white rounded-lg shadow p-4">
+                        <h3 class="text-lg font-bold mb-3">Tempo Medio Risoluzione</h3>
+                        <canvas id="tempoRisoluzioneChart" height="200"></canvas>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg shadow p-4">
+                    <h3 class="text-lg font-bold mb-3">Elenco Interventi Completati</h3>
+                    <div id="storicoInterventiList" class="divide-y divide-gray-200">
+                        <!-- Populated by JavaScript -->
+                        <div class="text-center text-gray-500 py-4">
+                            <i class="fas fa-spinner fa-spin mr-2"></i>Caricamento interventi...
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modals -->
+    <!-- Completa Intervento Modal -->
+    <div id="completaInterventoModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 hidden">
+        <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
+            <div class="mt-3 text-center">
+                <h3 class="text-lg leading-6 font-medium text-gray-900">Completa Intervento</h3>
+                <div class="mt-2 px-7 py-3">
+                    <input type="hidden" id="interventoId">
+                    <div class="mb-3">
+                        <div class="text-left mb-1 text-gray-600 text-sm">Descrizione Intervento</div>
+                        <textarea id="noteIntervento" placeholder="Descrivi l'intervento effettuato" class="mb-3 px-3 py-2 border rounded w-full" rows="4"></textarea>
+                    </div>
+                    <div class="mb-3" id="cialdeRiforniteSection">
+                        <div class="text-left mb-1 text-gray-600 text-sm">Quantità Cialde Rifornite</div>
+                        <div id="cialdeRiforniteInputs">
+                            <!-- Populated by JavaScript -->
+                        </div>
+                    </div>
+                    <div class="mb-3" id="cassaSvuotataSection">
+                        <div class="text-left mb-1 text-gray-600 text-sm">Importo Cassa Ritirato</div>
+                        <input type="number" id="importoCassa" placeholder="Importo in €" class="mb-3 px-3 py-2 border rounded w-full" step="0.01" min="0">
+                    </div>
+                </div>
+                <div class="items-center px-4 py-3">
+                    <button id="salvaInterventoBtn" class="px-4 py-2 bg-green-500 text-white rounded hover:bg-green-600">
+                        Completa Intervento
+                    </button>
+                    <button onclick="hideModal('completaInterventoModal')" class="px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                        Annulla
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // API Configuration
+        const API_BASE_URL = 'https://localhost:8443/api';
+        let tecnicoId = null;
+        let currentTab = 'interventiAttivi';
+        let interventiAttivi = [];
+        let macchineData = [];
+        let notificheInterval = null;
+
+        // Check Authentication
+        function checkAuth() {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                window.location.href = '/index.html';
+                return;
+            }
+            
+            // Set authorization header for all requests
+            axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+            
+            // Recupera informazioni utente
+            const userName = localStorage.getItem('user_name');
+            tecnicoId = localStorage.getItem('undefined');
+            console.log(tecnicoId);
+            document.getElementById('userName').textContent = userName;
+
+            // Avvia il polling delle notifiche
+            startNotifichePolling();
+        }
+
+        // Logout Function
+        function logout() {
+            localStorage.removeItem('jwt_token');
+            localStorage.removeItem('user_name');
+            localStorage.removeItem('user_id');
+            if (notificheInterval) clearInterval(notificheInterval);
+            window.location.href = '/index.html';
+        }
+
+        // Tab Management
+        function showTab(tabName) {
+            // Hide all tab contents
+            document.querySelectorAll('.tab-content').forEach(tab => {
+                tab.classList.add('hidden');
+            });
+            
+            // Remove active class from all tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('text-blue-600', 'border-blue-600', 'border-b-2');
+            });
+            
+            // Show selected tab
+            document.getElementById(tabName).classList.remove('hidden');
+            document.querySelector(`[data-tab="${tabName}"]`).classList.add('text-blue-600', 'border-blue-600', 'border-b-2');
+            
+            currentTab = tabName;
+            loadTabData(tabName);
+        }
+
+        // Load Tab Data
+        function loadTabData(tabName) {
+            switch(tabName) {
+                case 'interventiAttivi':
+                    loadInterventiAttivi();
+                    break;
+                case 'dettaglioMacchina':
+                    loadSelezionaMacchina();
+                    break;
+                case 'rifornimentoCialde':
+                    loadMacchineRifornimento();
+                    break;
+                case 'storicoInterventi':
+                    loadStoricoInterventi();
+                    break;
+                case 'monitorMacchine':
+                    loadInitialData();
+                    break;
+            }
+        }
+
+        // Modal Management
+        function showModal(modalId) {
+            document.getElementById(modalId).classList.remove('hidden');
+        }
+
+        function hideModal(modalId) {
+            document.getElementById(modalId).classList.add('hidden');
+        }
+
+        // Caricamento dashboard
+        function loadDashboardData() {
+            axios.get(`${API_BASE_URL}/manutenzione/tecnico/${tecnicoId}`)
+                .then(response => {
+                    const manutenzioni = response.data || [];
+                    
+                    // Conteggio interventi
+                    const attivi = manutenzioni.filter(m => m.stato === 'IN_ATTESA' || m.stato === 'IN_CORSO');
+                    const completati = manutenzioni.filter(m => m.stato === 'COMPLETATA');
+                    const urgenti = manutenzioni.filter(m => m.urgenza === 'ALTA' && (m.stato === 'IN_ATTESA' || m.stato === 'IN_CORSO'));
+                    
+                    document.getElementById('interventiAssegnatiCounter').textContent = attivi.length;
+                    document.getElementById('interventiCompletatiCounter').textContent = completati.length;
+                    document.getElementById('interventiUrgentiCounter').textContent = urgenti.length;
+                })
+                .catch(error => {
+                    console.error('Error loading interventi data:', error);
+                });
+
+            // Carica conteggio macchine attive
+            axios.get(`${API_BASE_URL}/macchine`)
+                .then(response => {
+                    const macchine = response.data || [];
+                    const attive = macchine.filter(m => m.statoId === 1).length;
+                    document.getElementById('macchineAttiveCounter').textContent = attive;
+                    
+                    // Salva i dati delle macchine per uso futuro
+                    macchineData = macchine;
+                })
+                .catch(error => {
+                    console.error('Error loading macchine data:', error);
+                });
+        }
+
+        // Interventi Attivi
+        function loadInterventiAttivi() {
+            const interventiList = document.getElementById('interventiList');
+            interventiList.innerHTML = '<div class="text-center text-gray-500 py-4"><i class="fas fa-spinner fa-spin mr-2"></i>Caricamento interventi...</div>';
+            
+            // Filtri
+            const filtroUrgenza = document.getElementById('filtroUrgenza').value;
+            const filtroTipo = document.getElementById('filtroTipo').value;
+            
+            axios.get(`${API_BASE_URL}/manutenzione/tecnico/${tecnicoId}`)
+                .then(response => {
+                    const manutenzioni = response.data || [];
+                    interventiAttivi = manutenzioni.filter(m => m.stato === 'IN_ATTESA' || m.stato === 'IN_CORSO');
+                    
+                    // Applica filtri
+                    let interventiFiltered = interventiAttivi;
+                    if (filtroUrgenza) {
+                        interventiFiltered = interventiFiltered.filter(i => i.urgenza === filtroUrgenza);
+                    }
+                    if (filtroTipo) {
+                        interventiFiltered = interventiFiltered.filter(i => i.tipoIntervento === filtroTipo);
+                    }
+                    
+                    interventiList.innerHTML = '';
+                    
+                    if (interventiFiltered.length === 0) {
+                        interventiList.innerHTML = '<div class="text-center text-gray-500 py-6">Nessun intervento attivo con i filtri selezionati</div>';
+                        return;
+                    }
+                    
+                    interventiFiltered.forEach(intervento => {
+                        const macchina = macchineData.find(m => m.id === intervento.macchinaId) || {};
+                        const nomeIstituto = macchina.nomeIstituto || 'Istituto non disponibile';
+                        
+                        const urgenzaClass = intervento.urgenza === 'ALTA' ? 'urgency-alta' : 
+                                           intervento.urgenza === 'MEDIA' ? 'urgency-media' : 'urgency-bassa';
+                        
+                        // Formatta la data di richiesta
+                        let dataRichiesta = 'Data non disponibile';
+                        if (intervento.dataRichiesta) {
+                            const data = new Date(intervento.dataRichiesta);
+                            dataRichiesta = data.toLocaleString();
+                        }
+                        
+                        // Icona per il tipo di intervento
+                        let tipoIcon = 'fa-wrench';
+                        let tipoText = 'Manutenzione';
+                        
+                        switch(intervento.tipoIntervento) {
+                            case 'GUASTO':
+                                tipoIcon = 'fa-exclamation-triangle';
+                                tipoText = 'Guasto';
+                                break;
+                            case 'RIFORNIMENTO_CIALDE':
+                                tipoIcon = 'fa-box';
+                                tipoText = 'Rifornimento Cialde';
+                                break;
+                            case 'SVUOTAMENTO_CASSA':
+                                tipoIcon = 'fa-cash-register';
+                                tipoText = 'Svuotamento Cassa';
+                                break;
+                        }
+                        
+                        const card = document.createElement('div');
+                        card.className = `p-4 border-l-4 mb-4 rounded shadow-sm ${urgenzaClass}`;
+                        card.innerHTML = `
+                            <div class="flex justify-between">
+                                <div class="flex">
+                                    <div class="px-3 py-3 rounded-full bg-gray-100 text-gray-600 mr-4">
+                                        <i class="fas ${tipoIcon} text-lg"></i>
+                                    </div>
+                                    <div>
+                                        <h4 class="font-bold text-gray-800">${tipoText} - Macchina #${intervento.macchinaId}</h4>
+                                        <p class="text-sm text-gray-600">${nomeIstituto}</p>
+                                        <p class="text-sm text-gray-500 mt-1">Richiesto il: ${dataRichiesta}</p>
+                                    </div>
+                                </div>
+                                <div class="flex items-start">
+                                    <span class="px-2 py-1 rounded text-xs font-medium ${urgenzaClass.replace('border-left-', '')}">
+                                        ${intervento.urgenza} URGENZA
+                                    </span>
+                                </div>
+                            </div>
+                            <div class="mt-3">
+                                <p class="text-gray-700">${intervento.descrizione}</p>
+                            </div>
+                            <div class="mt-4 flex justify-end">
+                                <button onclick="visualizzaMacchina(${intervento.macchinaId})" class="mr-3 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200">
+                                    <i class="fas fa-eye mr-1"></i>Vedi Macchina
+                                </button>
+                                <button onclick="preparaCompletamento(${intervento.id}, '${intervento.tipoIntervento}', ${intervento.macchinaId})" class="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600">
+                                    <i class="fas fa-check mr-1"></i>Completa
+                                </button>
+                            </div>
+                        `;
+                        
+                        interventiList.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading interventi:', error);
+                    interventiList.innerHTML = '<div class="text-center text-red-500 py-6"><i class="fas fa-exclamation-circle mr-2"></i>Errore nel caricamento degli interventi</div>';
+                });
+        }
+
+        // Dettaglio Macchina
+        function loadSelezionaMacchina() {
+            const selezionaMacchina = document.getElementById('selezionaMacchina');
+            selezionaMacchina.innerHTML = '<option value="">Seleziona una macchina</option>';
+            
+            axios.get(`${API_BASE_URL}/macchine`)
+                .then(response => {
+                    const macchine = response.data || [];
+                    
+                    macchine.forEach(macchina => {
+                        const option = document.createElement('option');
+                        option.value = macchina.id;
+                        option.textContent = `Macchina #${macchina.id} - ${macchina.nomeIstituto}`;
+                        selezionaMacchina.appendChild(option);
+                    });
+                    
+                 // Event listener per il cambio macchina
+                    selezionaMacchina.addEventListener('change', function() {
+                        const macchinaId = this.value;
+                        if (macchinaId) {
+                            caricaDettaglioMacchina(macchinaId);
+                        } else {
+                            resetDettaglioMacchina();
+                        }
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading macchine:', error);
+                    selezionaMacchina.innerHTML = '<option value="">Errore nel caricamento delle macchine</option>';
+                });
+        }
+
+        function resetDettaglioMacchina() {
+            document.getElementById('infoGenerali').innerHTML = '<p class="text-gray-500">Seleziona una macchina per visualizzare i dettagli</p>';
+            document.getElementById('statoCialde').innerHTML = '<p class="text-gray-500">Seleziona una macchina per visualizzare i dettagli</p>';
+            document.getElementById('statoCassa').innerHTML = '<p class="text-gray-500">Seleziona una macchina per visualizzare i dettagli</p>';
+            document.getElementById('storicoInterventiMacchina').innerHTML = '<p class="text-gray-500">Seleziona una macchina per visualizzare lo storico interventi</p>';
+        }
+
+        function caricaDettaglioMacchina(macchinaId) {
+            axios.get(`${API_BASE_URL}/macchine/${macchinaId}`)
+                .then(response => {
+                    const macchina = response.data;
+                    
+                    // Informazioni generali
+                    const infoGenerali = document.getElementById('infoGenerali');
+                    infoGenerali.innerHTML = `
+                        <table class="min-w-full text-sm">
+                            <tr>
+                                <td class="py-1 font-medium">ID:</td>
+                                <td>${macchina.id}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-medium">Istituto:</td>
+                                <td>${macchina.nomeIstituto}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-medium">Stato:</td>
+                                <td>
+                                    <span class="status-badge ${getStatusClass(macchina.statoId)}"></span>
+                                    ${macchina.statoDescrizione}
+                                </span>
+                                </td>
+                            </tr>
+                        </table>
+                    `;
+                    
+                    // Stato Cialde
+                    const statoCialde = document.getElementById('statoCialde');
+                    statoCialde.innerHTML = '';
+                    
+                    if (macchina.cialde && macchina.cialde.length > 0) {
+                        macchina.cialde.forEach(cialda => {
+                            const percentuale = (cialda.quantita / cialda.quantitaMassima * 100).toFixed(0);
+                            const colorClass = percentuale < 20 ? 'bg-red-600' : 
+                                             percentuale < 50 ? 'bg-yellow-600' : 'bg-green-600';
+                            
+                            const cialdaDiv = document.createElement('div');
+                            cialdaDiv.className = 'mb-3';
+                            cialdaDiv.innerHTML = `
+                                <div class="flex justify-between items-center mb-1">
+                                    <span class="font-medium">${cialda.nomeCialda || 'Cialda #' + cialda.cialdaId}</span>
+                                    <span class="text-sm">${cialda.quantita}/${cialda.quantitaMassima}</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                    <div class="${colorClass} h-2.5 rounded-full" style="width: ${percentuale}%"></div>
+                                </div>
+                            `;
+                            statoCialde.appendChild(cialdaDiv);
+                        });
+                    } else {
+                        statoCialde.innerHTML = '<p class="text-gray-500">Nessuna informazione sulle cialde disponibile</p>';
+                    }
+                    
+                    // Stato Cassa
+                    const statoCassa = document.getElementById('statoCassa');
+                    const percCassa = (macchina.cassaAttuale / macchina.cassaMassima * 100).toFixed(0);
+                    const colorClassCassa = percCassa > 80 ? 'bg-red-600' : 
+                                          percCassa > 50 ? 'bg-yellow-600' : 'bg-green-600';
+                    
+                    statoCassa.innerHTML = `
+                        <table class="min-w-full text-sm mb-3">
+                            <tr>
+                                <td class="py-1 font-medium">Credito Attuale:</td>
+                                <td>€${macchina.creditoAttuale.toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-medium">Cassa Attuale:</td>
+                                <td>€${macchina.cassaAttuale.toFixed(2)}</td>
+                            </tr>
+                            <tr>
+                                <td class="py-1 font-medium">Capacità Cassa:</td>
+                                <td>€${macchina.cassaMassima.toFixed(2)}</td>
+                            </tr>
+                        </table>
+                        <div class="mt-2">
+                            <div class="flex justify-between items-center mb-1">
+                                <span class="font-medium">Livello Cassa</span>
+                                <span class="text-sm">${percCassa}%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="${colorClassCassa} h-2.5 rounded-full" style="width: ${percCassa}%"></div>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Carica storico interventi per questa macchina
+                    caricaStoricoInterventiMacchina(macchinaId);
+                })
+                .catch(error => {
+                    console.error('Error loading macchina details:', error);
+                    resetDettaglioMacchina();
+                    document.getElementById('infoGenerali').innerHTML = '<div class="text-red-500">Errore nel caricamento dei dettagli della macchina</div>';
+                });
+        }
+        
+        function showMacchinaDetails(macchinaId) {
+            // Assicuriamoci che esista un modal per i dettagli della macchina
+            if (!document.getElementById('macchinaDetailsModal')) {
+                const modal = document.createElement('div');
+                modal.id = 'macchinaDetailsModal';
+                modal.className = 'fixed inset-0 bg-gray-600 bg-opacity-50 hidden flex items-center justify-center';
+                modal.innerHTML = `
+                    <div class="relative mx-auto p-5 border w-11/12 md:w-3/4 lg:w-1/2 shadow-lg rounded-md bg-white">
+                        <div class="flex justify-between items-center border-b pb-3">
+                            <h3 class="text-lg font-medium text-gray-900" id="macchinaDetailsTitle">Dettagli Macchina</h3>
+                            <button onclick="hideModal('macchinaDetailsModal')" class="text-gray-400 hover:text-gray-500">
+                                <i class="fas fa-times"></i>
+                            </button>
+                        </div>
+                        <div id="macchinaDetailsContent" class="mt-4">
+                            <div class="text-center">
+                                <i class="fas fa-spinner fa-spin text-blue-500 text-2xl"></i>
+                                <p>Caricamento...</p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                document.body.appendChild(modal);
+            }
+            
+            // Mostriamo il modal
+            showModal('macchinaDetailsModal');
+            
+            // Carichiamo i dettagli della macchina
+            axios.get(`${API_BASE_URL}/macchine/${macchinaId}`)
+                .then(response => {
+                    const macchina = response.data;
+                    const contentDiv = document.getElementById('macchinaDetailsContent');
+                    const title = document.getElementById('macchinaDetailsTitle');
+                    
+                    title.textContent = `Dettagli Macchina #${macchina.id}`;
+                    
+                    // Organizziamo i dati in sezioni
+                    let bevandeHtml = '';
+                    if (macchina.bevande && macchina.bevande.length > 0) {
+                        bevandeHtml = `
+                            <div class="mt-4">
+                                <h4 class="font-medium text-gray-700 mb-2">Bevande Disponibili</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    ${macchina.bevande.map(bevanda => `
+                                        <div class="border rounded p-2 bg-gray-50">
+                                            <div class="font-medium">${bevanda.nome}</div>
+                                            <div class="text-sm">Prezzo: €${bevanda.prezzo.toFixed(2)}</div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    let cialdeHtml = '';
+                    if (macchina.cialde && macchina.cialde.length > 0) {
+                        cialdeHtml = `
+                            <div class="mt-4">
+                                <h4 class="font-medium text-gray-700 mb-2">Stato Cialde</h4>
+                                <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                                    ${macchina.cialde.map(cialda => `
+                                        <div class="border rounded p-2 bg-gray-50">
+                                            <div class="font-medium">${cialda.nomeCialda || 'Cialda #' + cialda.cialdaId}</div>
+                                            <div class="text-sm">Quantità: ${cialda.quantita}/${cialda.quantitaMassima}</div>
+                                            <div class="mt-1 bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${(cialda.quantita/cialda.quantitaMassima*100).toFixed(0)}%"></div>
+                                            </div>
+                                        </div>
+                                    `).join('')}
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // Componiamo il contenuto completo
+                    contentDiv.innerHTML = `
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Informazioni Generali</h4>
+                                <table class="min-w-full text-sm">
+                                    <tr>
+                                        <td class="py-1 font-medium">ID:</td>
+                                        <td>${macchina.id}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Istituto:</td>
+                                        <td>${macchina.nomeIstituto}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Stato:</td>
+                                        <td>
+                                            <span class="px-2 py-1 rounded ${getStatoClass(macchina.statoId)}">
+                                                ${macchina.statoDescrizione}
+                                            </span>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                            <div>
+                                <h4 class="font-medium text-gray-700 mb-2">Stato Cassa</h4>
+                                <table class="min-w-full text-sm">
+                                    <tr>
+                                        <td class="py-1 font-medium">Credito Attuale:</td>
+                                        <td>€${macchina.creditoAttuale.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Cassa Attuale:</td>
+                                        <td>€${macchina.cassaAttuale.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Capacità Cassa:</td>
+                                        <td>€${macchina.cassaMassima.toFixed(2)}</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="py-1 font-medium">Riempimento:</td>
+                                        <td>
+                                            <div class="mt-1 bg-gray-200 rounded-full h-2.5">
+                                                <div class="bg-green-600 h-2.5 rounded-full" 
+                                                    style="width: ${(macchina.cassaAttuale/macchina.cassaMassima*100).toFixed(0)}%"></div>
+                                            </div>
+                                        </td>
+                                    </tr>
+                                </table>
+                            </div>
+                        </div>
+                        
+                        ${bevandeHtml}
+                        ${cialdeHtml}
+                        
+                        <div class="mt-6 text-right">
+                            <button onclick="configuraMacchina(${macchina.id})" class="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600">
+                                <i class="fas fa-cog mr-2"></i>Cambia stato
+                            </button>
+                            <button onclick="hideModal('macchinaDetailsModal')" class="ml-2 px-4 py-2 bg-gray-500 text-white rounded hover:bg-gray-600">
+                                Chiudi
+                            </button>
+                        </div>
+                    `;
+                })
+                .catch(error => {
+                    console.error('Error loading macchina details:', error);
+                    const contentDiv = document.getElementById('macchinaDetailsContent');
+                    contentDiv.innerHTML = `
+                        <div class="text-center text-red-500">
+                            <i class="fas fa-exclamation-triangle text-2xl mb-2"></i>
+                            <p>Errore nel caricamento dei dettagli della macchina.</p>
+                        </div>
+                    `;
+                });
+        }
+        function caricaStoricoInterventiMacchina(macchinaId) {
+            axios.get(`${API_BASE_URL}/manutenzione`)
+                .then(response => {
+                    const manutenzioni = response.data || [];
+                    const interventiFiltrati = manutenzioni.filter(m => 
+                        m.macchinaId === parseInt(macchinaId));
+                    
+                    const storicoDiv = document.getElementById('storicoInterventiMacchina');
+                    storicoDiv.innerHTML = '';
+                    
+                    if (interventiFiltrati.length === 0) {
+                        storicoDiv.innerHTML = '<p class="text-gray-500">Nessun intervento registrato per questa macchina</p>';
+                        return;
+                    }
+                    
+                    const table = document.createElement('table');
+                    table.className = 'min-w-full divide-y divide-gray-200';
+                    table.innerHTML = `
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Data
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Tipo
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Stato
+                                </th>
+                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                    Descrizione
+                                </th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                        </tbody>
+                    `;
+                    
+                    interventiFiltrati.forEach(intervento => {
+                        const row = document.createElement('tr');
+                        
+                        // Formatta la data
+                        let dataRichiesta = 'N/D';
+                        if (intervento.dataRichiesta) {
+                            const data = new Date(intervento.dataRichiesta);
+                            dataRichiesta = data.toLocaleDateString();
+                        }
+                        
+                        // Colore per lo stato
+                        let statoClass = 'text-yellow-600';
+                        if (intervento.stato === 'COMPLETATA') {
+                            statoClass = 'text-green-600';
+                        } else if (intervento.stato === 'FUORI_SERVIZIO') {
+                            statoClass = 'text-red-600';
+                        }
+                        
+                        row.innerHTML = `
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                ${dataRichiesta}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                ${formatTipoIntervento(intervento.tipoIntervento)}
+                            </td>
+                            <td class="px-6 py-4 whitespace-nowrap">
+                                <span class="px-2 py-1 inline-flex text-xs leading-5 font-semibold rounded-full bg-opacity-10 ${statoClass}">
+                                    ${intervento.stato}
+                                </span>
+                            </td>
+                            <td class="px-6 py-4 text-sm text-gray-500 max-w-xs truncate">
+                                ${intervento.descrizione || 'Nessuna descrizione'}
+                            </td>
+                        `;
+                        
+                        table.querySelector('tbody').appendChild(row);
+                    });
+                    
+                    storicoDiv.appendChild(table);
+                })
+                .catch(error => {
+                    console.error('Error loading interventi for machine:', error);
+                    document.getElementById('storicoInterventiMacchina').innerHTML = 
+                        '<div class="text-red-500">Errore nel caricamento degli interventi</div>';
+                });
+        }
+
+        // Rifornimento Cialde
+        function loadMacchineRifornimento() {
+            const macchinaSelect = document.getElementById('macchinaRifornimento');
+            macchinaSelect.innerHTML = '<option value="">Seleziona una macchina</option>';
+            
+            // Carica solo le macchine con interventi di rifornimento cialde
+            const interventiRifornimento = interventiAttivi.filter(i => 
+                i.tipoIntervento === 'RIFORNIMENTO_CIALDE');
+            
+            if (interventiRifornimento.length === 0) {
+                document.getElementById('rifornimentoInfo').innerHTML = `
+                    <div class="alert bg-yellow-100 text-yellow-800 p-4 rounded">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        Non ci sono interventi di rifornimento cialde in attesa.
+                    </div>
+                `;
+                document.getElementById('rifornimentoCialdeList').innerHTML = '';
+                document.getElementById('rifornimentoActions').classList.add('hidden');
+                return;
+            }
+            
+            // Mostra solo le macchine con interventi attivi di rifornimento
+            const macchineRifornimento = [...new Set(interventiRifornimento.map(i => i.macchinaId))];
+            
+            macchineRifornimento.forEach(macchinaId => {
+                const macchina = macchineData.find(m => m.id === macchinaId) || {};
+                const option = document.createElement('option');
+                option.value = macchinaId;
+                option.textContent = `Macchina #${macchinaId} - ${macchina.nomeIstituto || 'Istituto N/D'}`;
+                macchinaSelect.appendChild(option);
+            });
+            
+            // Event listener per il cambio macchina
+            macchinaSelect.addEventListener('change', function() {
+                const macchinaId = this.value;
+                if (macchinaId) {
+                    caricaSuggerimentiRifornimento(macchinaId);
+                } else {
+                    resetRifornimentoCialde();
+                }
+            });
+        }
+
+        function resetRifornimentoCialde() {
+            document.getElementById('rifornimentoCialdeList').innerHTML = '';
+            document.getElementById('rifornimentoActions').classList.add('hidden');
+            document.getElementById('rifornimentoInfo').innerHTML = `
+                <div class="alert bg-blue-100 text-blue-800 p-4 rounded">
+                    <i class="fas fa-info-circle mr-2"></i>
+                    Seleziona una macchina per visualizzare il dettaglio delle cialde da rifornire.
+                </div>
+            `;
+        }
+
+        function caricaSuggerimentiRifornimento(macchinaId) {
+            axios.get(`${API_BASE_URL}/macchine/${macchinaId}`)
+                .then(response => {
+                    const macchina = response.data;
+                    
+                    if (!macchina.cialde || macchina.cialde.length === 0) {
+                        document.getElementById('rifornimentoCialdeList').innerHTML = 
+                            '<div class="text-center text-gray-500 py-4">Nessuna informazione sulle cialde disponibile</div>';
+                        document.getElementById('rifornimentoActions').classList.add('hidden');
+                        return;
+                    }
+                    
+                    // Calcola le quantità suggerite in base al consumo (simulato)
+                    axios.get(`${API_BASE_URL}/manutenzione/macchina/${macchinaId}/cialde-necessarie`)
+                        .then(suggestionResponse => {
+                            const suggerimenti = suggestionResponse.data || {};
+                            
+                            const rifornimentoList = document.getElementById('rifornimentoCialdeList');
+                            rifornimentoList.innerHTML = '';
+                            
+                            // Header
+                            rifornimentoList.innerHTML = `
+                                <div class="overflow-x-auto">
+                                    <table class="min-w-full divide-y divide-gray-200">
+                                        <thead class="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Cialda
+                                                </th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Livello Attuale
+                                                </th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Livello Consigliato
+                                                </th>
+                                                <th scope="col" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                                                    Quantità Da Aggiungere
+                                                </th>
+                                            </tr>
+                                        </thead>
+                                        <tbody class="bg-white divide-y divide-gray-200">
+                                        </tbody>
+                                    </table>
+                                </div>
+                            `;
+                            
+                            macchina.cialde.forEach(cialda => {
+                                const row = document.createElement('tr');
+                                
+                                // Calcola la quantità consigliata
+                                const quantitaSuggerita = suggerimenti[cialda.cialdaId] || 0;
+                                const percentuale = (cialda.quantita / cialda.quantitaMassima * 100).toFixed(0);
+                                const colorClass = percentuale < 20 ? 'bg-red-600' : 
+                                                 percentuale < 50 ? 'bg-yellow-600' : 'bg-green-600';
+                                
+                                row.innerHTML = `
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="text-sm font-medium text-gray-900">${cialda.nomeCialda || 'Cialda #' + cialda.cialdaId}</div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <div class="flex items-center">
+                                            <span class="text-sm text-gray-500 mr-2">${cialda.quantita}/${cialda.quantitaMassima}</span>
+                                            <div class="w-24 bg-gray-200 rounded-full h-2.5">
+                                                <div class="${colorClass} h-2.5 rounded-full" style="width: ${percentuale}%"></div>
+                                            </div>
+                                        </div>
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                        ${cialda.quantitaMassima}
+                                    </td>
+                                    <td class="px-6 py-4 whitespace-nowrap">
+                                        <input type="number" 
+                                               class="quantita-input border rounded p-2 w-24"
+                                               data-cialda-id="${cialda.cialdaId}"
+                                               value="${cialda.quantitaMassima - cialda.quantita}"
+                                               min="0" 
+                                               max="${cialda.quantitaMassima - cialda.quantita}">
+                                    </td>
+                                `;
+                                
+                                rifornimentoList.querySelector('tbody').appendChild(row);
+                            });
+                            
+                            document.getElementById('rifornimentoActions').classList.remove('hidden');
+                        })
+                        .catch(error => {
+                            console.error('Error loading cialde suggestions:', error);
+                            document.getElementById('rifornimentoCialdeList').innerHTML = 
+                                '<div class="text-red-500">Errore nel calcolo delle quantità suggerite</div>';
+                        });
+                })
+                .catch(error => {
+                    console.error('Error loading macchina details for cialde:', error);
+                    document.getElementById('rifornimentoCialdeList').innerHTML = 
+                        '<div class="text-red-500">Errore nel caricamento dei dettagli della macchina</div>';
+                    document.getElementById('rifornimentoActions').classList.add('hidden');
+                });
+        }
+
+        // Storico Interventi
+        function loadStoricoInterventi() {
+            const periodoFiltro = document.getElementById('periodoFiltro').value;
+            
+            axios.get(`${API_BASE_URL}/manutenzione/tecnico/${tecnicoId}`)
+                .then(response => {
+                    const manutenzioni = response.data || [];
+                    // Filtriamo solo gli interventi completati
+                    const interventiCompletati = manutenzioni.filter(m => m.stato === 'COMPLETATA');
+                    
+                    // Filtro per periodo
+                    let interventiPeriodo = interventiCompletati;
+                    if (periodoFiltro !== 'all') {
+                        const giorni = parseInt(periodoFiltro);
+                        const dataLimite = new Date();
+                        dataLimite.setDate(dataLimite.getDate() - giorni);
+                        
+                        interventiPeriodo = interventiCompletati.filter(i => {
+                            const dataCompletamento = new Date(i.dataCompletamento);
+                            return dataCompletamento >= dataLimite;
+                        });
+                    }
+                    
+                    // Aggiorniamo i grafici
+                    aggiornaGraficiInterventi(interventiPeriodo);
+                    
+                    // Lista interventi completati
+                    const storicoList = document.getElementById('storicoInterventiList');
+                    storicoList.innerHTML = '';
+                    
+                    if (interventiPeriodo.length === 0) {
+                        storicoList.innerHTML = '<div class="text-center text-gray-500 py-6">Nessun intervento completato nel periodo selezionato</div>';
+                        return;
+                    }
+                    
+                    // Ordinamento per data di completamento (più recenti primi)
+                    interventiPeriodo.sort((a, b) => {
+                        const dataA = new Date(a.dataCompletamento || 0);
+                        const dataB = new Date(b.dataCompletamento || 0);
+                        return dataB - dataA;
+                    });
+                    
+                    interventiPeriodo.forEach(intervento => {
+                        const macchina = macchineData.find(m => m.id === intervento.macchinaId) || {};
+                        const nomeIstituto = macchina.nomeIstituto || 'Istituto non disponibile';
+                        
+                        // Formatta la data di completamento
+                        let dataCompletamento = 'Data non disponibile';
+                        if (intervento.dataCompletamento) {
+                            const data = new Date(intervento.dataCompletamento);
+                            dataCompletamento = data.toLocaleString();
+                        }
+                        
+                        // Calcola durata intervento
+                        let durataText = 'N/D';
+                        if (intervento.dataRichiesta && intervento.dataCompletamento) {
+                            const dataRichiesta = new Date(intervento.dataRichiesta);
+                            const dataCompletamento = new Date(intervento.dataCompletamento);
+                            const durataMs = dataCompletamento - dataRichiesta;
+                            
+                            // Converti in ore e minuti
+                            const durataOre = Math.floor(durataMs / (1000 * 60 * 60));
+                            const durataMinuti = Math.floor((durataMs % (1000 * 60 * 60)) / (1000 * 60));
+                            
+                            durataText = `${durataOre}h ${durataMinuti}m`;
+                        }
+                        
+                        const card = document.createElement('div');
+                        card.className = 'p-4 border-b';
+                        card.innerHTML = `
+                            <div class="flex justify-between">
+                                <div>
+                                    <h4 class="font-bold text-gray-800">${formatTipoIntervento(intervento.tipoIntervento)} - Macchina #${intervento.macchinaId}</h4>
+                                    <p class="text-sm text-gray-600">${nomeIstituto}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm text-gray-500">${dataCompletamento}</p>
+                                    <p class="text-sm font-medium text-blue-600">Durata: ${durataText}</p>
+                                </div>
+                            </div>
+                            <div class="mt-2">
+                                <p class="text-gray-700">${intervento.note || 'Nessuna nota'}</p>
+                            </div>
+                        `;
+                        
+                        storicoList.appendChild(card);
+                    });
+                })
+                .catch(error => {
+                    console.error('Error loading interventi completati:', error);
+                    document.getElementById('storicoInterventiList').innerHTML = 
+                        '<div class="text-red-500">Errore nel caricamento degli interventi completati</div>';
+                });
+        }
+
+        function aggiornaGraficiInterventi(interventi) {
+            // Raggruppa per tipo di intervento
+            const conteggiTipi = {};
+            interventi.forEach(intervento => {
+                const tipo = intervento.tipoIntervento || 'ALTRO';
+                conteggiTipi[tipo] = (conteggiTipi[tipo] || 0) + 1;
+            });
+            
+            // Grafico per tipo di intervento
+            const ctxInterventi = document.getElementById('interventiChart').getContext('2d');
+            if (window.interventiChart && typeof window.interventiChart.destroy === 'function') {
+                window.interventiChart.destroy();
+            }
+            
+            const tipiLabel = {
+                'GUASTO': 'Guasti',
+                'RIFORNIMENTO_CIALDE': 'Rifornimenti',
+                'SVUOTAMENTO_CASSA': 'Svuotamenti',
+                'ALTRO': 'Altri interventi'
+            };
+            
+            const colors = {
+                'GUASTO': 'rgba(239, 68, 68, 0.7)',
+                'RIFORNIMENTO_CIALDE': 'rgba(59, 130, 246, 0.7)',
+                'SVUOTAMENTO_CASSA': 'rgba(16, 185, 129, 0.7)',
+                'ALTRO': 'rgba(107, 114, 128, 0.7)'
+            };
+            
+            window.interventiChart = new Chart(ctxInterventi, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(conteggiTipi).map(tipo => tipiLabel[tipo] || tipo),
+                    datasets: [{
+                        label: 'Interventi Completati',
+                        data: Object.values(conteggiTipi),
+                        backgroundColor: Object.keys(conteggiTipi).map(tipo => colors[tipo] || 'rgba(107, 114, 128, 0.7)')
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                precision: 0
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        }
+                    }
+                }
+            });
+            
+            // Calcola tempo medio di risoluzione per tipo di intervento
+            const tempiRisoluzione = {};
+            const conteggiValidi = {};
+            
+            interventi.forEach(intervento => {
+                if (intervento.dataRichiesta && intervento.dataCompletamento) {
+                    const tipo = intervento.tipoIntervento || 'ALTRO';
+                    const dataRichiesta = new Date(intervento.dataRichiesta);
+                    const dataCompletamento = new Date(intervento.dataCompletamento);
+                    const durataOre = (dataCompletamento - dataRichiesta) / (1000 * 60 * 60);
+                    
+                    if (!tempiRisoluzione[tipo]) {
+                        tempiRisoluzione[tipo] = 0;
+                        conteggiValidi[tipo] = 0;
+                    }
+                    
+                    tempiRisoluzione[tipo] += durataOre;
+                    conteggiValidi[tipo]++;
+                }
+            });
+            
+            // Calcola le medie
+            const tempiMedi = {};
+            Object.keys(tempiRisoluzione).forEach(tipo => {
+                if (conteggiValidi[tipo] > 0) {
+                    tempiMedi[tipo] = tempiRisoluzione[tipo] / conteggiValidi[tipo];
+                }
+            });
+            
+            // Grafico tempo medio di risoluzione
+            const ctxTempo = document.getElementById('tempoRisoluzioneChart').getContext('2d');
+            if (window.tempoChart && typeof window.tempoChart.destroy === 'function') {
+                window.tempoChart.destroy();
+            }
+            
+            window.tempoChart = new Chart(ctxTempo, {
+                type: 'bar',
+                data: {
+                    labels: Object.keys(tempiMedi).map(tipo => tipiLabel[tipo] || tipo),
+                    datasets: [{
+                        label: 'Tempo Medio (ore)',
+                        data: Object.values(tempiMedi),
+                        backgroundColor: Object.keys(tempiMedi).map(tipo => colors[tipo] || 'rgba(107, 114, 128, 0.7)')
+                    }]
+                },
+                options: {
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: 'Ore'
+                            }
+                        }
+                    },
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const ore = context.raw;
+                                    const oreIntere = Math.floor(ore);
+                                    const minuti = Math.round((ore - oreIntere) * 60);
+                                    return `${oreIntere}h ${minuti}m`;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // Funzioni di gestione interventi
+        function visualizzaMacchina(macchinaId) {
+            document.getElementById('selezionaMacchina').value = macchinaId;
+            showTab('dettaglioMacchina');
+            caricaDettaglioMacchina(macchinaId);
+        }
+
+        function preparaCompletamento(interventoId, tipoIntervento, macchinaId) {
+            document.getElementById('interventoId').value = interventoId;
+            
+            // Recuperiamo dettagli macchina per completamento
+            axios.get(`${API_BASE_URL}/macchine/${macchinaId}`)
+                .then(response => {
+                    const macchina = response.data;
+                    
+                    // Reset delle sezioni
+                    document.getElementById('cialdeRiforniteSection').classList.add('hidden');
+                    document.getElementById('cassaSvuotataSection').classList.add('hidden');
+                    
+                    // Prepara il form in base al tipo di intervento
+                    switch(tipoIntervento) {
+                        case 'RIFORNIMENTO_CIALDE':
+                            preparaFormRifornimentoCialde(macchina);
+                            break;
+                        case 'SVUOTAMENTO_CASSA':
+                            preparaFormSvuotamentoCassa(macchina);
+                            break;
+                    }
+                    
+                    showModal('completaInterventoModal');
+                })
+                .catch(error => {
+                    console.error('Error loading machine details for intervention:', error);
+                    alert('Errore nel recupero dei dettagli della macchina');
+                });
+        }
+
+        function preparaFormRifornimentoCialde(macchina) {
+            document.getElementById('cialdeRiforniteSection').classList.remove('hidden');
+            const cialdeInputs = document.getElementById('cialdeRiforniteInputs');
+            cialdeInputs.innerHTML = '';
+            
+            if (!macchina.cialde || macchina.cialde.length === 0) {
+                cialdeInputs.innerHTML = '<p class="text-gray-500">Nessuna informazione sulle cialde disponibile</p>';
+                return;
+            }
+            
+            macchina.cialde.forEach(cialda => {
+                const div = document.createElement('div');
+                div.className = 'flex justify-between items-center mb-2';
+                div.innerHTML = `
+                    <span class="text-sm">${cialda.nomeCialda || 'Cialda #' + cialda.cialdaId}</span>
+                    <input type="number" 
+                           class="rifornimento-input border rounded p-1 w-24"
+                           data-cialda-id="${cialda.cialdaId}"
+                           value="${cialda.quantitaMassima - cialda.quantita}"
+                           min="0" 
+                           max="${cialda.quantitaMassima - cialda.quantita}">
+                `;
+                cialdeInputs.appendChild(div);
+            });
+        }
+
+        function preparaFormSvuotamentoCassa(macchina) {
+            document.getElementById('cassaSvuotataSection').classList.remove('hidden');
+            document.getElementById('importoCassa').value = macchina.cassaAttuale.toFixed(2);
+        }
+
+        function completaIntervento() {
+            const interventoId = document.getElementById('interventoId').value;
+            const note = document.getElementById('noteIntervento').value;
+            
+            if (!note) {
+                alert('Inserisci una descrizione dell\'intervento');
+                return;
+            }
+            
+            axios.put(`${API_BASE_URL}/manutenzione/${interventoId}/completa`, {
+                note: note,
+                tecnico: tecnicoId
+            })
+            .then(response => {
+                hideModal('completaInterventoModal');
+                alert('Intervento completato con successo');
+                
+                // Ricarica i dati della dashboard
+                loadDashboardData();
+                loadInterventiAttivi();
+            })
+            .catch(error => {
+                console.error('Error completing intervention:', error);
+                alert('Errore nel completamento dell\'intervento');
+            });
+        }
+
+        // Funzioni di supporto
+        function getStatusClass(statoId) {
+            return {
+                1: 'status-available',
+                2: 'status-maintenance',
+                3: 'status-inactive'
+            }[statoId] || 'status-unknown';
+        }
+
+        function formatTipoIntervento(tipo) {
+            const map = {
+                'GUASTO': 'Guasto',
+                'RIFORNIMENTO_CIALDE': 'Rifornimento Cialde',
+                'SVUOTAMENTO_CASSA': 'Svuotamento Cassa'
+            };
+            return map[tipo] || tipo;
+        }
+
+        // Sistema di notifiche
+        function startNotifichePolling() {
+            // Controlla le notifiche immediatamente all'avvio
+            checkNotifiche();
+            
+            // Imposta un polling ogni 30 secondi
+            notificheInterval = setInterval(checkNotifiche, 30000);
+            
+            // Configura il pulsante delle notifiche
+            document.getElementById('notificheBtn').addEventListener('click', toggleNotifichePanel);
+        }
+
+        function checkNotifiche() {
+            // Controlla nuovi interventi assegnati
+            axios.get(`${API_BASE_URL}/manutenzione/tecnico/${tecnicoId}`)
+                .then(response => {
+                    const manutenzioni = response.data || [];
+                    const nuoveAssegnazioni = manutenzioni.filter(m => 
+                        m.stato === 'IN_ATTESA' && 
+                        localStorage.getItem(`notifica_intervento_${m.id}`) === null);
+                    
+                    if (nuoveAssegnazioni.length > 0) {
+                        // Mostra il dot delle notifiche
+                        document.getElementById('notificationDot').classList.remove('hidden');
+                        
+                        // Aggiorna la lista delle notifiche
+                        const notificheList = document.getElementById('notificheList');
+                        notificheList.innerHTML = '';
+                        
+                        nuoveAssegnazioni.forEach(intervento => {
+                            const notifica = document.createElement('div');
+                            notifica.className = 'p-2 border-b border-gray-200 hover:bg-gray-50';
+                            
+                            const macchina = macchineData.find(m => m.id === intervento.macchinaId) || {};
+                            const tipoText = formatTipoIntervento(intervento.tipoIntervento);
+                            
+                            notifica.innerHTML = `
+                                <div class="text-sm font-medium">Nuovo intervento assegnato</div>
+                                <div class="text-xs text-gray-500">
+                                    ${tipoText} - Macchina #${intervento.macchinaId} - ${macchina.nomeIstituto || ''}
+                                </div>
+                                <div class="mt-1 text-right">
+                                    <button onclick="visualizzaIntervento(${intervento.id})" class="text-xs text-blue-600 hover:text-blue-800">
+                                        Visualizza
+                                    </button>
+                                </div>
+                            `;
+                            
+                            notificheList.appendChild(notifica);
+                            
+                            // Segna come letta per la prossima volta
+                            localStorage.setItem(`notifica_intervento_${intervento.id}`, 'true');
+                        });
+                    }
+                })
+                .catch(error => {
+                    console.error('Error checking notifications:', error);
+                });
+        }
+
+        function toggleNotifichePanel() {
+            const panel = document.getElementById('notifichePanel');
+            panel.classList.toggle('hidden');
+            
+            // Rimuovi il dot quando l'utente apre le notifiche
+            if (!panel.classList.contains('hidden')) {
+                document.getElementById('notificationDot').classList.add('hidden');
+            }
+        }
+
+        function visualizzaIntervento(interventoId) {
+            // Trova l'intervento nei dati caricati
+            const intervento = interventiAttivi.find(i => i.id === interventoId);
+            if (intervento) {
+                // Nascondi il pannello notifiche
+                document.getElementById('notifichePanel').classList.add('hidden');
+                
+                // Vai alla tab degli interventi attivi
+                showTab('interventiAttivi');
+                
+                // Evidenzia l'intervento (da implementare)
+                const interventoElement = document.querySelector(`[data-intervento-id="${interventoId}"]`);
+                if (interventoElement) {
+                    interventoElement.scrollIntoView({ behavior: 'smooth' });
+                    interventoElement.classList.add('ring-2', 'ring-blue-500');
+                    setTimeout(() => {
+                        interventoElement.classList.remove('ring-2', 'ring-blue-500');
+                    }, 3000);
+                }
+            }
+        }
+     // Configurazione
+        const MQTT_CONFIG = {
+            host: 'localhost',
+            port: 9002,  // Porta WebSocket
+            useSSL: true,
+            username: '20019309',
+            password: 'Pissir2024!',
+            keepAliveInterval: 30,
+            cleanSession: true,
+        };
+
+        // Stato
+        let machines = {};
+        let alerts = [];
+        let client = null;
+        let statusCounts = { 1: 0, 2: 0, 3: 0 }; // 1=Attiva, 2=Manutenzione, 3=Fuori Servizio
+
+        // Funzioni di utility per l'autenticazione
+        const AuthUtils = {
+            async ensureAuthToken() {
+                let token = localStorage.getItem('jwt_token');
+                if (!token) {
+                    token = await this.generateAnonymousToken();
+                    localStorage.setItem('jwt_token', token);
+                    localStorage.setItem('userRole', 'anonymous');
+                }
+                return token;
+            },
+
+            async generateAnonymousToken() {
+                try {
+                    const response = await axios.post(`${API_BASE_URL}/auth/anonymous`);
+                    return response.data.token;
+                } catch (error) {
+                    console.error('Errore nella generazione del token anonimo:', error);
+                    return null;
+                }
+            },
+
+            getAuthHeaders() {
+                const token = localStorage.getItem('jwt_token');
+                return {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                };
+            }
+        };
+
+        // Inizializza MQTT Connection
+        function initMQTT() {
+            const clientId = 'dashboard_' + Math.random().toString(16).substring(2, 8);
+            
+            // Costruzione corretta dell'URL WebSocket
+            const wsUrl = MQTT_CONFIG.useSSL ? 
+                `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
+                `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
+            
+            try {
+                // Crea il client MQTT
+                client = new Paho.MQTT.Client(wsUrl, clientId);
+                
+                // Configura i callback
+                client.onConnectionLost = onConnectionLost;
+                client.onMessageArrived = onMessageArrived;
+                
+                // Configura le opzioni di connessione
+                const connectOptions = {
+                    userName: MQTT_CONFIG.username,
+                    password: MQTT_CONFIG.password,
+                    keepAliveInterval: MQTT_CONFIG.keepAliveInterval,
+                    cleanSession: MQTT_CONFIG.cleanSession,
+                    onSuccess: onConnect,
+                    onFailure: onConnectFailure,
+                    timeout: 3
+                };
+                
+                console.log('Tentativo di connessione MQTT:', {
+                    url: wsUrl,
+                    clientId: clientId,
+                    useSSL: MQTT_CONFIG.useSSL,
+                    port: MQTT_CONFIG.port
+                });
+                
+                // Connetti il client
+                client.connect(connectOptions);
+            } catch (error) {
+                console.error('Errore nella creazione del client MQTT:', error);
+                updateMQTTStatus('error');
+                
+                // Riprova la connessione dopo un ritardo
+                setTimeout(() => {
+                    console.log('Ritento connessione MQTT...');
+                    initMQTT();
+                }, 3000);
+            }
+        }
+
+        // Carica dati iniziali dalle API
+        async function loadInitialData() {
+            try {
+                await AuthUtils.ensureAuthToken();
+                
+                // Recupera l'elenco delle macchine
+                const response = await axios.get(
+                    `${API_BASE_URL}/macchine`, 
+                    { headers: AuthUtils.getAuthHeaders() }
+                );
+                
+                const machinesList = response.data;
+                console.log('Macchine caricate:', machinesList);
+                
+                // Inizializza lo stato per ciascuna macchina
+                machinesList.forEach(machine => {
+                    machines[machine.id] = {
+                        id: machine.id,
+                        statoId: machine.statoId,
+                        creditoAttuale: machine.creditoAttuale || 0,
+                        cassaAttuale: machine.cassaAttuale || 0,
+                        cassaMassima: machine.cassaMassima || 100,
+                        lastUpdate: new Date().toISOString(),
+                        istitutoId: machine.istitutoId,
+                        nomeIstituto: machine.nomeIstituto || 'Sconosciuto'
+                    };
+                    
+                    updateMachineCard(machine.id);
+                });
+                
+                updateStatusCounts();
+            } catch (error) {
+                console.error('Errore nel caricamento dei dati iniziali:', error);
+            }
+        }
+
+        // MQTT Event Handlers
+        function onConnect() {
+            updateMQTTStatus('connected');
+            
+            // Sottoscrizione ai topic
+            client.subscribe('macchine/+/stato');
+            client.subscribe('macchine/+/eventi');
+            client.subscribe('macchine/+/cassa/stato/risposta');
+            client.subscribe('macchine/+/bevande/stato/risposta');
+            
+            console.log('Connesso al broker MQTT');
+        }
+
+        function onConnectFailure(error) {
+            console.error('Errore di connessione MQTT:', error);
+            updateMQTTStatus('error');
+            
+            // Implementa backoff esponenziale per i tentativi
+            setTimeout(() => {
+                console.log('Ritento connessione MQTT...');
+                initMQTT();
+            }, 5000);
+        }
+
+        function onConnectionLost(responseObject) {
+            if (responseObject.errorCode !== 0) {
+                console.log('Connessione MQTT persa:', responseObject.errorMessage);
+                updateMQTTStatus('disconnected');
+                
+                // Riprova la connessione dopo un ritardo
+                setTimeout(() => {
+                    console.log('Ritento connessione MQTT...');
+                    initMQTT();
+                }, 5000);
+            }
+        }
+
+        function onMessageArrived(message) {
+            try {
+                const topic = message.destinationName;
+                const topicParts = topic.split('/');
+                const machineId = parseInt(topicParts[1]);
+                
+                let payload;
+                try {
+                    payload = JSON.parse(message.payloadString);
+                } catch (e) {
+                    payload = message.payloadString;
+                }
+                
+                console.log(`Messaggio ricevuto da ${topic}:`, payload);
+                
+                if (topic.endsWith('/stato')) {
+                    updateMachineStatus(machineId, payload);
+                } else if (topic.endsWith('/eventi')) {
+                    handleAlert(machineId, payload);
+                } else if (topic.endsWith('/stato/risposta')) {
+                    if (topic.includes('/cassa/')) {
+                        updateMachineCashStatus(machineId, payload);
+                    } else if (topic.includes('/bevande/')) {
+                        updateMachineBeverageStatus(machineId, payload);
+                    }
+                }
+            } catch (error) {
+                console.error('Errore nell\'elaborazione del messaggio:', error);
+            }
+        }
+
+        // UI Update Functions
+        function updateMQTTStatus(status) {
+            const statusIcon = document.getElementById('mqttStatus');
+            const statusText = document.getElementById('mqttStatusText');
+
+            switch(status) {
+                case 'connected':
+                    statusIcon.className = 'fas fa-signal mr-2 text-green-500';
+                    statusText.textContent = 'MQTT: Connesso';
+                    break;
+                case 'disconnected':
+                    statusIcon.className = 'fas fa-signal mr-2 text-red-500';
+                    statusText.textContent = 'MQTT: Disconnesso';
+                    break;
+                case 'error':
+                    statusIcon.className = 'fas fa-exclamation-triangle mr-2 text-red-500';
+                    statusText.textContent = 'MQTT: Errore';
+                    break;
+            }
+        }
+
+        function updateMachineStatus(machineId, status) {
+            // Aggiorna solo se abbiamo già un record per questa macchina
+            if (machines[machineId]) {
+                // Se status è un oggetto con stato, aggiorna lo statoId
+                if (status && typeof status === 'object' && status.stato !== undefined) {
+                    machines[machineId].statoId = status.stato;
+                }
+                
+                // Aggiorna il timestamp
+                machines[machineId].lastUpdate = new Date().toISOString();
+                
+                // Aggiorna la UI
+                updateMachineCard(machineId);
+                updateStatusCounts();
+            }
+        }
+
+        function updateMachineCashStatus(machineId, status) {
+            if (machines[machineId] && status) {
+                if (typeof status === 'object') {
+                    // Aggiorna i dati della cassa
+                    if (status.cassaAttuale !== undefined) {
+                        machines[machineId].cassaAttuale = status.cassaAttuale;
+                    }
+                    if (status.creditoAttuale !== undefined) {
+                        machines[machineId].creditoAttuale = status.creditoAttuale;
+                    }
+                }
+                
+                // Aggiorna la UI
+                updateMachineCard(machineId);
+            }
+        }
+
+        function updateMachineBeverageStatus(machineId, status) {
+            if (machines[machineId] && status) {
+                if (typeof status === 'object') {
+                    // Aggiorna i dati delle bevande/cialde
+                    if (status.cialde) {
+                        machines[machineId].cialde = status.cialde;
+                    }
+                }
+                
+                // Aggiorna la UI
+                updateMachineCard(machineId);
+            }
+        }
+
+        function updateMachineCard(machineId) {
+            const machine = machines[machineId];
+            if (!machine) return;
+            
+            // Calcola la percentuale di riempimento della cassa
+            const cashPercentage = machine.cassaMassima > 0 
+                ? Math.round((machine.cassaAttuale / machine.cassaMassima) * 100)
+                : 0;
+            
+            // Calcola lo stato delle cialde (se disponibile)
+            let podLevelHtml = '';
+            if (machine.cialde && Array.isArray(machine.cialde)) {
+                const totalPods = machine.cialde.reduce((sum, cialda) => sum + cialda.quantita, 0);
+                const maxPods = machine.cialde.reduce((sum, cialda) => sum + cialda.quantitaMassima, 0);
+                const podPercentage = maxPods > 0 ? Math.round((totalPods / maxPods) * 100) : 0;
+                
+                podLevelHtml = `
+                    <div class="flex items-center mt-2">
+                        <div class="w-full bg-gray-200 rounded-full h-2.5">
+                            <div class="bg-green-600 h-2.5 rounded-full" style="width: ${podPercentage}%"></div>
+                        </div>
+                        <span class="ml-2">Cialde: ${podPercentage}%</span>
+                    </div>
+                `;
+            }
+            
+            const cardHTML = `
+                <div class="bg-white p-4 rounded-lg shadow">
+                    <div class="flex justify-between items-center mb-2">
+                        <h3 class="text-lg font-semibold">Macchina #${machine.id}</h3>
+                        <span class="px-2 py-1 rounded-full text-sm ${getStatusClass(machine.statoId)}">
+                            ${getStatusText(machine.statoId)}
+                        </span>
+                    </div>
+                    <div class="space-y-2">
+                        <p>${machine.nomeIstituto || 'Istituto non specificato'}</p>
+                        <p>Ultima attività: ${new Date(machine.lastUpdate).toLocaleString()}</p>
+                        <div class="flex items-center">
+                            <div class="w-full bg-gray-200 rounded-full h-2.5">
+                                <div class="bg-blue-600 h-2.5 rounded-full" style="width: ${cashPercentage}%"></div>
+                            </div>
+                            <span class="ml-2">Cassa: ${cashPercentage}%</span>
+                        </div>
+                        <p>Credito: €${machine.creditoAttuale ? machine.creditoAttuale.toFixed(2) : '0.00'}</p>
+                        
+                        
+                    </div>
+                </div>
+            `;
+
+            const existingCard = document.getElementById(`machine-${machineId}`);
+            if (existingCard) {
+                existingCard.innerHTML = cardHTML;
+            } else {
+                const machinesGrid = document.getElementById('machinesGrid');
+                const newCard = document.createElement('div');
+                newCard.id = `machine-${machineId}`;
+                newCard.innerHTML = cardHTML;
+                machinesGrid.appendChild(newCard);
+            }
+        }
+
+        function handleAlert(machineId, alert) {
+            const timestamp = new Date().toISOString();
+            
+            const alertObj = {
+                machineId,
+                tipo: alert.tipo,
+                messaggio: alert.messaggio,
+                livello: alert.livello,
+                timestamp
+            };
+            
+            alerts.unshift(alertObj);
+            alerts = alerts.slice(0, 10); // Mantieni solo gli ultimi 10 allarmi
+            updateAlertsList();
+
+            // Desktop notification
+            if (Notification.permission === 'granted') {
+                new Notification(`Allarme Macchina #${machineId}`, {
+                    body: alert.messaggio,
+                    icon: '/alert-icon.png'
+                });
+            }
+        }
+
+        function updateAlertsList() {
+            const alertsList = document.getElementById('alertsList');
+            if (alerts.length === 0) {
+                alertsList.innerHTML = '<p class="text-gray-500">Nessun allarme recente</p>';
+                return;
+            }
+            
+            alertsList.innerHTML = alerts.map(alert => `
+                <div class="border-l-4 ${getAlertClass(alert.livello)} p-4">
+                    <div class="flex items-center">
+                        <i class="fas fa-exclamation-triangle mr-2"></i>
+                        <div class="flex-1">
+                            <p class="font-bold">Macchina #${alert.machineId} - ${alert.tipo}</p>
+                            <p class="text-sm">${alert.messaggio}</p>
+                            <p class="text-xs text-gray-500 mt-1">
+                                ${new Date(alert.timestamp).toLocaleString()}
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function updateStatusCounts() {
+            // Resetta i contatori
+            statusCounts = { 1: 0, 2: 0, 3: 0 };
+            
+            // Conta le macchine per ciascuno stato
+            Object.values(machines).forEach(machine => {
+                if (machine.statoId >= 1 && machine.statoId <= 3) {
+                    statusCounts[machine.statoId]++;
+                }
+            });
+            
+            // Aggiorna la UI
+            document.getElementById('activeCount').textContent = statusCounts[1];
+            document.getElementById('maintenanceCount').textContent = statusCounts[2];
+            document.getElementById('errorCount').textContent = statusCounts[3];
+        }
+
+        // Utility Functions
+        function getStatusClass(statoId) {
+            switch(statoId) {
+                case 1: return 'bg-green-100 text-green-800';
+                case 2: return 'bg-yellow-100 text-yellow-800';
+                case 3: return 'bg-red-100 text-red-800';
+                default: return 'bg-gray-100 text-gray-800';
+            }
+        }
+
+        function getStatusText(statoId) {
+            switch(statoId) {
+                case 1: return 'Attiva';
+                case 2: return 'Manutenzione';
+                case 3: return 'Fuori Servizio';
+                default: return 'Sconosciuto';
+            }
+        }
+
+        function getAlertClass(livello) {
+            switch(livello) {
+                case 3: return 'border-red-500 bg-red-50';
+                case 2: return 'border-yellow-500 bg-yellow-50';
+                case 1: return 'border-blue-500 bg-blue-50';
+                default: return 'border-gray-500 bg-gray-50';
+            }
+        }
+
+
+        // Configurazione axios per la gestione degli errori di autenticazione
+        axios.interceptors.response.use(
+            response => response,
+            async error => {
+                if (error.response?.status === 401) {
+                    // Token scaduto o non valido
+                    localStorage.removeItem('jwt_token');
+                    await AuthUtils.ensureAuthToken();
+                    // Riprova la richiesta originale con il nuovo token
+                    const originalRequest = error.config;
+                    originalRequest.headers = AuthUtils.getAuthHeaders();
+                    return axios(originalRequest);
+                }
+                return Promise.reject(error);
+            }
+        );
+
+        // Inizializza applicazione
+        document.addEventListener('DOMContentLoaded', async () => {
+            try {
+                await loadInitialData();
+                initMQTT();
+                
+                // Aggiorna ciclicamente per mantenere i dati freschi
+                setInterval(async () => {
+                    if (client && client.isConnected()) {
+                        // Richiedi dati aggiornati solo per le macchine già presenti
+                        Object.keys(machines).forEach(machineId => {
+                            const topic = `macchine/${machineId}/stato`;
+                            const message = new Paho.MQTT.Message(JSON.stringify({ request: 'getStatus' }));
+                            message.destinationName = topic;
+                            client.send(message);
+                        });
+                    }
+                }, 30000); // Aggiorna ogni 30 secondi
+            } catch (error) {
+                console.error('Errore durante l\'inizializzazione dell\'applicazione:', error);
+            }
+        });
+
+        // Event listeners
+        document.addEventListener('DOMContentLoaded', () => {
+            checkAuth();
+            
+            // Mostra la prima tab
+            showTab('interventiAttivi');
+            
+            // Carica i dati della dashboard
+            loadDashboardData();
+            
+            // Filtri per interventi attivi
+            document.getElementById('filtroUrgenza').addEventListener('change', () => loadInterventiAttivi());
+            document.getElementById('filtroTipo').addEventListener('change', () => loadInterventiAttivi());
+            
+            // Filtri per storico interventi
+            document.getElementById('periodoFiltro').addEventListener('change', () => loadStoricoInterventi());
+            
+            // Button per completare intervento
+            document.getElementById('salvaInterventoBtn').addEventListener('click', completaIntervento);
+            
+            // Button per registrare rifornimento
+            document.getElementById('registraRifornimentoBtn').addEventListener('click', function() {
+                const macchinaId = document.getElementById('macchinaRifornimento').value;
+                if (!macchinaId) {
+                    alert('Seleziona una macchina');
+                    return;
+                }
+                
+                // Trova l'intervento di rifornimento per questa macchina
+                const intervento = interventiAttivi.find(i => 
+                    i.macchinaId === parseInt(macchinaId) && 
+                    i.tipoIntervento === 'RIFORNIMENTO_CIALDE');
+                
+                if (intervento) {
+                    preparaCompletamento(intervento.id, 'RIFORNIMENTO_CIALDE', macchinaId);
+                } else {
+                    alert('Nessun intervento di rifornimento trovato per questa macchina');
+                }
+            });
+            
+            // Button per esportare report
+            document.getElementById('esportaReportBtn').addEventListener('click', function() {
+                alert('Funzionalità di esportazione report in fase di sviluppo');
+                // Da implementare: generazione PDF con le statistiche
+            });
+            
+            // Chiudi il pannello notifiche quando si fa click fuori da esso
+            document.addEventListener('click', function(event) {
+                const notifichePanel = document.getElementById('notifichePanel');
+                const notificheBtn = document.getElementById('notificheBtn');
+                
+                if (!notifichePanel.classList.contains('hidden') && 
+                    !notifichePanel.contains(event.target) && 
+                    !notificheBtn.contains(event.target)) {
+                    notifichePanel.classList.add('hidden');
+                }
+            });
+        });
+    </script>
+</body>
+</html>

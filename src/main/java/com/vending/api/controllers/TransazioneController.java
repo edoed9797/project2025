@@ -1,6 +1,7 @@
 package com.vending.api.controllers;
 
 import com.google.gson.Gson;
+import com.vending.ServiceRegistry;
 import com.vending.core.models.Transazione;
 import com.vending.core.services.TransazioneService;
 import spark.Request;
@@ -15,7 +16,7 @@ public class TransazioneController {
 
     public TransazioneController(TransazioneService transazioneService) {
         this.transazioneService = transazioneService;
-        this.gson = new Gson();
+        this.gson =  ServiceRegistry.get(Gson.class);
     }
 
     public Object getAllTransazioni(Request req, Response res) {

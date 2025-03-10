@@ -94,7 +94,18 @@
                                 Accedi
                             </a>
                         </div>
-
+                        
+                        <!-- Card Dashboard Tecnici) -->
+                        <div class="action-card hidden" id="TecDashboardCard">
+                            <div class="card-icon">
+                                <i class="fas fa-cogs"></i>
+                            </div>
+                            <h3>Dashboard Tecnici</h3>
+                            <p>Gestione Manutenzioni sistema</p>
+                            <a href="/pages/admin/dash_tecnici.html" class="btn btn-primary">
+                                Accedi
+                            </a>
+                        </div>
                         <!-- Card Login (visibile solo per guest) -->
                         <div class="action-card" id="loginCard">
                             <div class="card-icon">
@@ -165,9 +176,15 @@
                 if (auth.isEmployee()) {
                     employeeDashboardCard.classList.remove('hidden');
                     adminDashboardCard.classList.add('hidden');
+					TecDashboardCard.classList.add('hidden');
                 } else if (auth.isAdmin()) {
                     adminDashboardCard.classList.remove('hidden');
                     employeeDashboardCard.classList.add('hidden');
+					TecDashboardCard.classList.add('hidden');
+                } else if (auth.isTec()) {
+                    adminDashboardCard.classList.add('hidden');
+                    employeeDashboardCard.classList.add('hidden');
+					TecDashboardCard.classList.remove('hidden');
                 }
             } else {
                 // Mostra login e registrazione

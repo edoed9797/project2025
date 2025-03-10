@@ -1,9 +1,12 @@
 package com.vending.api.controllers;
 
 import com.google.gson.Gson;
+
 import com.google.gson.reflect.TypeToken;
 import com.vending.core.models.Bevanda;
 import com.vending.core.services.BevandaService;
+import com.vending.core.models.Cialda;
+import com.vending.core.repositories.CialdaRepository;
 import spark.Request;
 import spark.Response;
 import java.lang.reflect.Type;
@@ -16,6 +19,7 @@ import java.util.Optional;
  */
 public class BevandaController {
     private final BevandaService bevandaService;
+    private final CialdaRepository cialdaRepository;
     private final Gson gson;
 
     /**
@@ -23,8 +27,9 @@ public class BevandaController {
      *
      * @param bevandaService servizio per la gestione delle bevande
      */
-    public BevandaController(BevandaService bevandaService) {
+    public BevandaController(BevandaService bevandaService,  CialdaRepository cialdaRepository) {
         this.bevandaService = bevandaService;
+        this.cialdaRepository = cialdaRepository;
         this.gson = new Gson();
     }
 
@@ -207,7 +212,43 @@ public class BevandaController {
             return gson.toJson(Map.of("errore", "Errore nell'aggiunta della cialda: " + e.getMessage()));
         }
     }
-
+    
+    /**
+     * Recupera tutte le cialde disponibili.
+     *
+     * @param req richiesta HTTP
+     * @param res risposta HTTP
+     * @return lista JSON delle cialde
+     */
+    public Object getAllCialde(Request req, Response res) {
+        try {
+            List<Cialda> cialde = cialdaRepository.findAll();
+            res.type("application/json");
+            return gson.toJson(cialde);
+        } catch (RuntimeException e) {
+            // Log dell'errore
+            e.printStackTrace();
+            
+            // Analisi della causa principale
+            Throwable rootCause = e;
+            while (rootCause.getCause() != null) {
+                rootCause = rootCause.getCause();
+            }
+            
+            System.err.println("Causa principale: " + rootCause.getMessage());
+            
+            res.status(500);
+            return gson.toJson(Map.of(
+                "errore", "Errore nel recupero delle cialde",
+                "dettaglio", rootCause.getMessage()
+            ));
+        } catch (Exception e) {
+            e.printStackTrace();
+            res.status(500);
+            return gson.toJson(Map.of("errore", "Errore imprevisto: " + e.getMessage()));
+        }
+    }
+    
     /**
      * Rimuove una cialda da una bevanda.
      *

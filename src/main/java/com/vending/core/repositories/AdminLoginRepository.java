@@ -60,14 +60,15 @@ public class AdminLoginRepository {
         
         try (Connection conn = dbConnection.getConnection();
              PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
-            stmt.setInt(1, id);
-            ResultSet rs = stmt.executeQuery();
-            
-            if (rs.next()) {
-                AdminLogin adminLogin = mapResultSetToAdminLogin(rs);
-                caricaUtente(adminLogin);
-                return Optional.of(adminLogin);
+        	stmt.setInt(1, id);
+        	try (ResultSet rs = stmt.executeQuery()) {
+                if (rs.next()) {
+                    // Importante: mappare il ResultSet all'interno del blocco try-with-resources
+                    AdminLogin adminLogin = mapResultSetToAdminLogin(rs);
+                    // Carica l'utente dopo aver mappato i dati di base
+                    caricaUtente(adminLogin);
+                    return Optional.of(adminLogin);
+                }
             }
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il recupero dell'accesso amministrativo", e);
@@ -83,22 +84,59 @@ public class AdminLoginRepository {
      */
     public Optional<AdminLogin> findByUsername(String username) {
         String sql = "SELECT * FROM adminlogin WHERE Username = ?";
+        Connection conn = null;
+        PreparedStatement stmt = null;
+        ResultSet rs = null;
         
-        try (Connection conn = dbConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql)) {
-            
+        try {
+            conn = dbConnection.getConnection();
+            stmt = conn.prepareStatement(sql);
             stmt.setString(1, username);
-            ResultSet rs = stmt.executeQuery();
+            rs = stmt.executeQuery();
             
             if (rs.next()) {
-                AdminLogin adminLogin = mapResultSetToAdminLogin(rs);
+                // Mappiamo i dati mentre il ResultSet è ancora aperto
+                AdminLogin adminLogin = new AdminLogin();
+                adminLogin.setId(rs.getInt("ID_AdminLogin"));
+                adminLogin.setUtenteId(rs.getInt("ID_Utente"));
+                adminLogin.setUsername(rs.getString("Username"));
+                adminLogin.setPasswordHash(rs.getString("PasswordHash"));
+                Timestamp timestamp = rs.getTimestamp("UltimoAccesso");
+                if (timestamp != null) {
+                    adminLogin.setUltimoAccesso(timestamp.toLocalDateTime());
+                }
+                
+                // Carichiamo l'utente solo dopo aver estratto i dati base
                 caricaUtente(adminLogin);
                 return Optional.of(adminLogin);
             }
+            return Optional.empty();
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il recupero dell'accesso amministrativo", e);
+        } finally {
+            // Chiudiamo le risorse nell'ordine inverso di creazione
+            if (rs != null) {
+                try {
+                    rs.close();
+                } catch (SQLException e) {
+                    System.err.println("Errore durante la chiusura del ResultSet: " + e.getMessage());
+                }
+            }
+            if (stmt != null) {
+                try {
+                    stmt.close();
+                } catch (SQLException e) {
+                    System.err.println("Errore durante la chiusura dello Statement: " + e.getMessage());
+                }
+            }
+            if (conn != null) {
+                try {
+                    conn.close();
+                } catch (SQLException e) {
+                    System.err.println("Errore durante la chiusura della Connection: " + e.getMessage());
+                }
+            }
         }
-        return Optional.empty();
     }
 
     /**

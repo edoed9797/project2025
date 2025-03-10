@@ -48,6 +48,12 @@
             <artifactId>gson</artifactId>
             <version>${gson.version}</version>
         </dependency>
+        
+        <dependency>
+		    <groupId>com.zaxxer</groupId>
+		    <artifactId>HikariCP</artifactId>
+		    <version>5.0.1</version> <!-- Usa la versione più recente disponibile -->
+		</dependency>
 
         <!-- Logging -->
         <dependency>
