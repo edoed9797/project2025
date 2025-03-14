@@ -161,30 +161,30 @@ public class TransazioneRepository {
      * @return transazione salvata con ID generato
      */
     public Transazione save(Transazione transazione) {
-        String sql = "INSERT INTO transazione (ID_Macchina, ID_Bevanda, Importo, DataOra) " +
-                    "VALUES (?, ?, ?, ?)";
-                    
+        // Ottieni il prossimo ID disponibile
+        int nextId = getLastTransactionId() + 1;
+        
+        // Imposta l'ID sulla transazione
+        transazione.setId(nextId);
+        
+        String sql = "INSERT INTO transazione (ID_Transazione, ID_Macchina, ID_Bevanda, Importo, DataOra) " +
+                    "VALUES (?, ?, ?, ?, ?)";
+        
         try (Connection conn = dbConnection.getConnection();
-             PreparedStatement stmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+             PreparedStatement stmt = conn.prepareStatement(sql)) {
             
-            stmt.setInt(1, transazione.getMacchinaId());
-            stmt.setInt(2, transazione.getBevandaId());
-            stmt.setDouble(3, transazione.getImporto());
-            stmt.setTimestamp(4, Timestamp.valueOf(transazione.getDataOra()));
+            stmt.setInt(1, transazione.getId());
+            stmt.setInt(2, transazione.getMacchinaId());
+            stmt.setInt(3, transazione.getBevandaId());
+            stmt.setDouble(4, transazione.getImporto());
+            stmt.setTimestamp(5, Timestamp.valueOf(transazione.getDataOra()));
             
             int affectedRows = stmt.executeUpdate();
             if (affectedRows == 0) {
                 throw new SQLException("La creazione della transazione è fallita");
             }
             
-            try (ResultSet generatedKeys = stmt.getGeneratedKeys()) {
-                if (generatedKeys.next()) {
-                    transazione.setId(generatedKeys.getInt(1));
-                    return transazione;
-                } else {
-                    throw new SQLException("La creazione della transazione è fallita, nessun ID ottenuto");
-                }
-            }
+            return transazione;
         } catch (SQLException e) {
             throw new RuntimeException("Errore durante il salvataggio della transazione", e);
         }

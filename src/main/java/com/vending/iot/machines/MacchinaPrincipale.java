@@ -21,6 +21,8 @@ public class MacchinaPrincipale {
     private final MQTTClient clientMqtt;
     private final Gson gson;
     private final AtomicBoolean inErogazione;
+    private long ultimaPubblicazioneStato = 0;
+    private static final long INTERVALLO_MINIMO_PUBBLICAZIONE = 5000;
 
     public MacchinaPrincipale(Macchina macchina) throws MqttException {
         this.id = macchina.getId();
@@ -65,12 +67,17 @@ public class MacchinaPrincipale {
                 case "riavvio":
                     eseguiRiavvio();
                     break;
-                case "stato":
+                case "stato/richiesta":
                     pubblicaStatoMacchina();
                     break;
             }
         });
 
+     // Richieste di stato
+        clientMqtt.subscribe(topicBase + "stato/richiesta", (topic, messaggio) -> {
+            pubblicaStatoMacchina();
+        });
+        
         // Operazioni cliente
         clientMqtt.subscribe(topicBase + "operazioni/#", (topic, messaggio) -> {
             String operazione = topic.substring((topicBase + "operazioni/").length());
@@ -143,13 +150,13 @@ public class MacchinaPrincipale {
             pubblicaEvento("inizio_erogazione", "Preparazione bevanda in corso");
 
             // Simula tempo di preparazione
-            Thread.sleep(5000);
+            Thread.sleep(7500);
 
             // Consuma le cialde
             gestoreCialde.consumaCialde(bevandaRichiesta.getCialde());
 
             // Aggiorna il saldo della cassa
-            gestoreCassa.processaPagamento(bevandaRichiesta.getPrezzo());
+            gestoreCassa.processaPagamento(bevandaRichiesta.getPrezzo(), bevandaRichiesta.getId());
 
             // Completa erogazione
             pubblicaEvento("fine_erogazione", "Bevanda pronta");
@@ -161,22 +168,43 @@ public class MacchinaPrincipale {
         }
     }
 
+    /**
+    * Pubblica lo stato corrente della macchina sul topic MQTT appropriato.
+    * Questa funzione raccoglie lo stato da tutti i componenti e lo pubblica
+    * come risposta su un topic specifico.
+    */
     public void pubblicaStatoMacchina() {
-        try {
-            Map<String, Object> stato = new HashMap<>();
-            stato.put("id", id);
-            stato.put("statoCassa", gestoreCassa.ottieniStato());
-            stato.put("statoBevande", gestoreBevande.ottieniStato());
-            stato.put("statoCialde", gestoreCialde.ottieniStato());
-            stato.put("statoManutenzione", gestoreManutenzione.ottieniStato());
-            stato.put("inErogazione", inErogazione.get());
-
-            clientMqtt.publish("macchine/" + id + "/stato", gson.toJson(stato));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
+	    try {
+	        // Raccogli lo stato completo della macchina
+	        Map<String, Object> statoCompletaMacchina = new HashMap<>();
+	        
+	        // Aggiungi informazioni di base della macchina
+	        statoCompletaMacchina.put("id", id);
+	        statoCompletaMacchina.put("timestamp", System.currentTimeMillis());
+	        statoCompletaMacchina.put("inErogazione", inErogazione.get());
+	        
+	        // Aggiungi lo stato dei componenti
+	        statoCompletaMacchina.put("cassa", gestoreCassa.ottieniStato());
+	        statoCompletaMacchina.put("bevande", gestoreBevande.ottieniStato());
+	        statoCompletaMacchina.put("cialde", gestoreCialde.ottieniStato());
+	        statoCompletaMacchina.put("manutenzione", gestoreManutenzione.ottieniStato());
+	        
+	        // Converti lo stato in JSON
+	        String statoJson = gson.toJson(statoCompletaMacchina);
+	        
+	        // Pubblica sul topic specifico per le risposte di stato
+	        String topic = "macchine/" + id + "/stato/risposta";
+	        clientMqtt.publish(topic, statoJson);
+	        
+	        // Log dell'operazione (usa il logger se disponibile)
+	        System.out.println("Stato macchina " + id + " pubblicato");
+	    } catch (Exception e) {
+	        // Log dell'errore
+	        System.err.println("Errore durante la pubblicazione dello stato della macchina " + 
+	                    id + ": " + e.getMessage());
+	        e.printStackTrace();
+	    }
+	}
     private void pubblicaEvento(String tipo, String messaggio) {
         try {
             Map<String, Object> evento = Map.of(
@@ -185,18 +213,40 @@ public class MacchinaPrincipale {
                     "timestamp", System.currentTimeMillis()
             );
 
-            clientMqtt.publish("macchine/" + id + "/eventi", gson.toJson(evento));
+            clientMqtt.publish("macchine/" + id + "/eventi/notifica", gson.toJson(evento));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
 
     private void pubblicaErrore(String codice, String messaggio) {
-        pubblicaEvento("errore", Map.of(
-                "codice", codice,
-                "messaggio", messaggio
-        ).toString());
+        try {
+            Map<String, Object> errore = Map.of(
+                    "codice", codice, 
+                    "messaggio", messaggio,
+                    "timestamp", System.currentTimeMillis()
+            );
+            
+            clientMqtt.publish("macchine/" + id + "/errori/notifica", gson.toJson(errore));
+        } catch (Exception e) {
+            e.printStackTrace(); 
+        }
     }
+    
+    private int estraiMacchinaIdDaTopic(String topic) {
+        try {
+            String[] parts = topic.split("/");
+            if (parts.length >= 2) {
+                return Integer.parseInt(parts[1]);
+            } else {
+                throw new IllegalArgumentException("Format del topic non valido: " + topic);
+            }
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Errore nell'estrazione dell'ID macchina dal topic: " + topic, e);
+        }
+    }
+    
+    
 
     public void eseguiSpegnimento() {
         try {

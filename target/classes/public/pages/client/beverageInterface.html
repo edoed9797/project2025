@@ -74,6 +74,10 @@
             align-items: center;
             gap: 0.5rem;
         }
+        
+        .p-8 {
+        	padding: 14rem;
+		}
 
         .status-active {
             background-color: #10B981;
@@ -185,7 +189,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 40;
+            z-index: 1000;
         }
 
         .hidden {
@@ -284,11 +288,9 @@
 
                 <!-- Pulsanti Azione -->
                 <div class="flex gap-4">
-                    <button id="dispenseButton" 
-                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled>
-                        Eroga
-                    </button>
+                    <button id="dispenseButton" class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" onclick="openErogationModal()" disabled>
+						Eroga
+					</button>
                     <button id="returnCreditButton" 
                             class="px-6 py-3 bg-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled>
@@ -298,15 +300,25 @@
             </div>
         </div>
     </div>
-
-    <!-- Overlay Erogazione -->
+	<!-- Modale per l'erogazione -->
+	<div id="erogationModal" class="overlay hidden">
+		<div class="bg-white p-8 rounded-lg text-center w-full max-w-2xl">
+			<!-- Contenuto del modale -->
+			<div id="modalContent">
+				<!-- Qui verrà caricata la pagina HTML generata -->
+				
+			</div>
+			<h4>Attendi..</h4>
+		</div>
+	</div>
+    <!-- Overlay Erogazione
     <div id="dispensingOverlay" class="overlay hidden">
         <div class="bg-white p-8 rounded-lg text-center">
             <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4 mx-auto"></div>
             <h3 class="text-xl font-bold mb-4">Erogazione in Corso</h3>
             <p id="dispensingStatus" class="text-gray-600">Preparazione bevanda...</p>
         </div>
-    </div>
+    </div> -->
 
     <!-- Alert -->
     <div id="alertBox" class="alert">
@@ -373,20 +385,27 @@
         const MQTT_TOPICS = {
             // Topic di sottoscrizione per lo stato della macchina
             MACHINE_STATUS: 'macchine/${machineId}/stato',
+            MACHINE_STATUS_REQUEST: 'macchine/${machineId}/stato',
             
             // Topic per la gestione della cassa
             CASH_INSERT: 'macchine/${machineId}/cassa/inserimentoCredito', 
             CASH_RETURN: 'macchine/${machineId}/cassa/richiestaResto',
-            CASH_STATUS: 'macchine/${machineId}/cassa/stato/risposta',
+            CASH_STATUS: 'macchine/${machineId}/cassa/stato',
             
             // Topic per le bevande
             BEVERAGE_REQUEST: 'macchine/${machineId}/cassa/richiestaBevanda',
-            BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato/risposta',
+            BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato',
             
             // Altri topic
             MAINTENANCE: 'macchine/${machineId}/manutenzione/stato',
             ALERTS: 'macchine/${machineId}/eventi'
         };
+        
+        let lastStateRequestTime = 0;
+        const STATE_REQUEST_DEBOUNCE = 3000;
+        
+        let lastCashAlertTime = 0;
+        const CASH_ALERT_COOLDOWN = 60000;
         
         // Funzioni di utility per l'autenticazione
         const AuthUtils = {
@@ -573,11 +592,8 @@
         function requestInitialState() {
             // Esegue una singola richiesta iniziale dello stato della macchina
             console.log("Richiesta stato iniziale della macchina");
-            publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus', timestamp: Date.now() });
+            publishMessage(MQTT_TOPICS.MACHINE_STATUS_REQUEST, { timestamp: Date.now() });
             
-            // Esegue una singola richiesta iniziale dello stato della cassa
-            console.log("Richiesta stato iniziale della cassa");
-            publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus', timestamp: Date.now() });
         }
 
         function onConnectFailure(error) {
@@ -615,20 +631,24 @@
         }
 
         function onMessageArrived(message) {
-            try {
+        	console.log(`[${new Date().toISOString()}] MQTT Messaggio ricevuto: ${message.destinationName}`, message.payloadString);
+        	try {
                 const topic = message.destinationName;
                 let payload;
                 
                 try {
                     payload = JSON.parse(message.payloadString);
                 } catch (parseError) {
-                    // Se non è JSON, usa il testo grezzo (potrebbe essere un numero)
                     payload = message.payloadString;
                 }
                 
+                const isRequestMessage = payload && 
+                typeof payload === 'object' && 
+                (payload.request || payload.purpose);
+                
                 switch (topic) {
                     case MQTT_TOPICS.MACHINE_STATUS:
-                        if (!payload.request) {
+                        if (!isRequestMessage) {
                             console.log("Ricevuto stato macchina:", payload);
                             handleMachineStatus(payload);
                         }
@@ -671,7 +691,7 @@
         // Gestori dei messaggi MQTT
         function handleMachineStatus(status) {
             // Aggiorna lo stato della macchina solo se abbiamo dati validi
-            if (status && typeof status === 'object') {
+            if (status && typeof status === 'object' && !status.request) {
                 machineState = { ...machineState, ...status };
                 
                 // Aggiorna l'interfaccia
@@ -687,11 +707,15 @@
                 }
                 
                 if (status.cassaAttuale / status.cassaMassima > 0.9) {
-                    publishMessage(MQTT_TOPICS.ALERTS, {
-                        tipo: 'CASSA_PIENA',
-                        messaggio: 'Necessario svuotamento cassa',
-                        livello: 2
-                    });
+                    const now = Date.now();
+                    if (now - lastCashAlertTime > CASH_ALERT_COOLDOWN) {
+                        lastCashAlertTime = now;
+                        publishMessage(MQTT_TOPICS.ALERTS, {
+                            tipo: 'CASSA_PIENA',
+                            messaggio: 'Necessario svuotamento cassa',
+                            livello: 2
+                        });
+                    }
                 }
             }
         }
@@ -723,45 +747,44 @@
         }
 
         function handleBeverageStatus(status) {
-            if (status.completed) {
-                elements.dispensingOverlay.classList.add('hidden');
-                resetSelection();
-                showNotification('Bevanda erogata con successo!');
-                
-                // Richiedi aggiornamento dello stato solo una volta dopo l'erogazione completata
-                console.log("Richiesta aggiornamento stato dopo erogazione completata");
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-dispense-update' 
-                });
-                
-                // Aggiorna anche lo stato della cassa
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-dispense-update' 
-                });
-            } else if (status.error) {
-                elements.dispensingOverlay.classList.add('hidden');
-                showAlert(`Errore: ${status.error}`);
-                
-                // Richiedi aggiornamento solo una volta anche in caso di errore
-                console.log("Richiesta aggiornamento stato dopo errore erogazione");
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-error-update' 
-                });
-                
-                // Aggiorna anche lo stato della cassa
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-error-update' 
-                });
-            }
-        }
+			if (status.completed) {
+				closeErogationModal();
+				showNotification('Bevanda erogata con successo!');
+				
+				// Richiedi aggiornamento dello stato solo una volta dopo l'erogazione completata
+				console.log("Richiesta aggiornamento stato dopo erogazione completata");
+				publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-dispense-update' 
+				});
+				
+				// Aggiorna anche lo stato della cassa
+				publishMessage(MQTT_TOPICS.CASH_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-dispense-update' 
+				});
+			} else if (status.error) {
+				closeErogationModal();
+				showAlert(`Errore: ${status.error}`);
+				
+				// Richiedi aggiornamento solo una volta anche in caso di errore
+				console.log("Richiesta aggiornamento stato dopo errore erogazione");
+				publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-error-update' 
+				});
+				
+				// Aggiorna anche lo stato della cassa
+				publishMessage(MQTT_TOPICS.CASH_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-error-update' 
+				});
+			}
+		}
 
         function handleAlerts(alert) {
             switch(alert.tipo) {
@@ -876,24 +899,6 @@
             }, 500);
         }
 
-        async function handleBeverageRequest() {
-            if (!selectedBeverage || currentCredit < selectedBeverage.price) return;
-            
-            try {
-                // Verifica lo stato della macchina prima di procedere con l'erogazione
-                await checkMachineStatusBeforeDispense();
-                
-                elements.dispensingOverlay.classList.remove('hidden');
-                publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
-                    bevandaId: selectedBeverage.id,
-                    importo: selectedBeverage.price,
-                    zucchero: sugarLevel,
-                    timestamp: Date.now()
-                });
-            } catch (error) {
-                showAlert(`Non è possibile erogare: ${error.message}`);
-            }
-        }
         
         // Funzione per verificare lo stato della macchina prima dell'erogazione
         async function checkMachineStatusBeforeDispense() {
@@ -1026,13 +1031,22 @@
             updateDispenseButtonState();
         }
 
-        // Utility
+        
         function publishMessage(topic, message) {
             if (!client?.isConnected()) {
                 showAlert('Non connesso al sistema');
                 return;
             }
-
+            
+            if (topic === MQTT_TOPICS.MACHINE_STATUS && message && message.request === 'getStatus') {
+                    const now = Date.now();
+                    if (now - lastStateRequestTime < STATE_REQUEST_DEBOUNCE) {
+                        console.log("Richiesta stato ignorata (debounce)");
+                        return;
+                    }
+                    lastStateRequestTime = now;
+            }
+            
             // Converti il messaggio in stringa JSON
             let messageStr;
             if (typeof message === 'object') {
@@ -1058,6 +1072,424 @@
                 currentCredit = 0;
             }
         }
+		
+        function openErogationModal() {
+            const modal = document.getElementById('erogationModal');
+            const modalContent = document.getElementById('modalContent');
+
+            // Carica la pagina HTML generata nel modale
+            modalContent.innerHTML = `
+                <style>
+            
+            		
+                    #erogationModal .loader {
+                    }
+
+                    #erogationModal .container {
+                        width: 300px;
+                        height: 280px;
+                        position: absolute;
+                        top: calc(50% - 140px);
+                        left: calc(50% - 150px);
+                    }
+
+                    #erogationModal .coffee-header {
+                        width: 100%;
+                        height: 80px;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        background-color: #ddcfcc;
+                        border-radius: 10px;
+                    }
+
+                    #erogationModal .coffee-header__buttons {
+                        width: 25px;
+                        height: 25px;
+                        position: absolute;
+                        top: 25px;
+                        background-color: #282323;
+                        border-radius: 50%;
+                    }
+
+                    #erogationModal .coffee-header__buttons::after {
+                        content: "";
+                        width: 8px;
+                        height: 8px;
+                        position: absolute;
+                        bottom: -8px;
+                        left: calc(50% - 4px);
+                        background-color: #615e5e;
+                    }
+
+                    #erogationModal .coffee-header__button-one {
+                        left: 15px;
+                    }
+
+                    #erogationModal .coffee-header__button-two {
+                        left: 50px;
+                    }
+
+                    #erogationModal .coffee-header__display {
+                        width: 50px;
+                        height: 50px;
+                        position: absolute;
+                        top: calc(50% - 25px);
+                        left: calc(50% - 25px);
+                        border-radius: 50%;
+                        background-color: #000000;
+                        border: 5px solid #ff0000;
+                        box-sizing: border-box;
+                    }
+
+                    #erogationModal .coffee-header__details {
+                        width: 8px;
+                        height: 20px;
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        background-color: #9b9091;
+                        box-shadow: -12px 0 0 #9b9091, -24px 0 0 #9b9091;
+                    }
+
+                    #erogationModal .coffee-medium {
+                        width: 90%;
+                        height: 160px;
+                        position: absolute;
+                        top: 80px;
+                        left: calc(50% - 45%);
+                        background-color: #bcb0af;
+                    }
+
+                    #erogationModal .coffee-medium:before {
+                        content: "";
+                        width: 90%;
+                        height: 100px;
+                        background-color: #776f6e;
+                        position: absolute;
+                        bottom: 0;
+                        left: calc(50% - 45%);
+                        border-radius: 20px 20px 0 0;
+                    }
+
+                    #erogationModal .coffe-medium__exit {
+                        width: 60px;
+                        height: 20px;
+                        position: absolute;
+                        top: 0;
+                        left: calc(50% - 30px);
+                        background-color: #231f20;
+                    }
+
+                    #erogationModal .coffe-medium__exit::before {
+                        content: "";
+                        width: 50px;
+                        height: 20px;
+                        border-radius: 0 0 50% 50%;
+                        position: absolute;
+                        bottom: -20px;
+                        left: calc(50% - 25px);
+                        background-color: #231f20;
+                    }
+
+                    #erogationModal .coffe-medium__exit::after {
+                        content: "";
+                        width: 10px;
+                        height: 10px;
+                        position: absolute;
+                        bottom: -30px;
+                        left: calc(50% - 5px);
+                        background-color: #231f20;
+                    }
+
+                    #erogationModal .coffee-medium__arm::before {
+                        content: "";
+                        width: 15px;
+                        height: 5px;
+                        position: absolute;
+                        top: 7px;
+                        left: -15px;
+                        background-color: #9e9495;
+                    }
+
+                    #erogationModal .coffee-medium__cup {
+                        width: 80px;
+                        height: 47px;
+                        position: absolute;
+                        bottom: 0;
+                        left: calc(50% - 40px);
+                        background-color: #FFF;
+                        border-radius: 0 0 70px 70px / 0 0 110px 110px;
+                    }
+
+                    #erogationModal .coffee-medium__cup::after {
+                        content: "";
+                        width: 20px;
+                        height: 20px;
+                        position: absolute;
+                        top: 6px;
+                        right: -13px;
+                        border: 5px solid #FFF;
+                        border-radius: 50%;
+                    }
+
+                    @keyframes liquid {
+                        0% {
+                            height: 0px;
+                            opacity: 1;
+                        }
+
+                        5% {
+                            height: 0px;
+                            opacity: 1;
+                        }
+
+                        20% {
+                            height: 62px;
+                            opacity: 1;
+                        }
+
+                        95% {
+                            height: 62px;
+                            opacity: 1;
+                        }
+
+                        100% {
+                            height: 62px;
+                            opacity: 0;
+                        }
+                    }
+
+                    #erogationModal .coffee-medium__liquid {
+                        width: 6px;
+                        height: 63px;
+                        opacity: 0;
+                        position: absolute;
+                        top: 50px;
+                        left: calc(50% - 3px);
+                        background-color: #74372b;
+                        animation: liquid 4s 4s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke {
+                        width: 8px;
+                        height: 20px;
+                        position: absolute;
+                        border-radius: 5px;
+                        background-color: #b3aeae;
+                    }
+
+                    @keyframes smokeOne {
+                        0% {
+                            bottom: 20px;
+                            opacity: 0;
+                        }
+
+                        40% {
+                            bottom: 50px;
+                            opacity: .5;
+                        }
+
+                        80% {
+                            bottom: 80px;
+                            opacity: .3;
+                        }
+
+                        100% {
+                            bottom: 80px;
+                            opacity: 0;
+                        }
+                    }
+
+                    @keyframes smokeTwo {
+                        0% {
+                            bottom: 40px;
+                            opacity: 0;
+                        }
+
+                        40% {
+                            bottom: 70px;
+                            opacity: .5;
+                        }
+
+                        80% {
+                            bottom: 80px;
+                            opacity: .3;
+                        }
+
+                        100% {
+                            bottom: 80px;
+                            opacity: 0;
+                        }
+                    }
+
+                    #erogationModal .coffee-medium__smoke-one {
+                        opacity: 0;
+                        bottom: 50px;
+                        left: 102px;
+                        animation: smokeOne 3s 4s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke-two {
+                        opacity: 0;
+                        bottom: 70px;
+                        left: 118px;
+                        animation: smokeTwo 3s 5s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke-three {
+                        opacity: 0;
+                        bottom: 65px;
+                        right: 118px;
+                        animation: smokeTwo 3s 6s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke-for {
+                        opacity: 0;
+                        bottom: 50px;
+                        right: 102px;
+                        animation: smokeOne 3s 5s linear infinite;
+                    }
+
+                    #erogationModal .coffee-footer {
+                        width: 95%;
+                        height: 15px;
+                        position: absolute;
+                        bottom: 25px;
+                        left: calc(50% - 47.5%);
+                        background-color: #4d4d4d;
+                        border-radius: 10px;
+                    }
+
+                    #erogationModal .coffee-footer::after {
+                        content: "";
+                        width: 106%;
+                        height: 26px;
+                        position: absolute;
+                        bottom: -25px;
+                        left: -8px;
+                        background-color: #000;
+                    }
+
+                    #erogationModal .screen {
+                        width: 100%;
+                        height: 60px;
+                        position: absolute;
+                        top: -70px;
+                        left: 0;
+                        background-color: #333;
+                        border-radius: 10px;
+                        padding: 10px;
+                        box-sizing: border-box;
+                        color: #fff;
+                        font-family: Arial, sans-serif;
+                        text-align: center;
+                    }
+
+                    #erogationModal .screen-text {
+                        font-size: 14px;
+                        margin-bottom: 10px;
+                    }
+
+                    #erogationModal .progress-bar {
+                        width: 100%;
+                        height: 10px;
+                        background-color: #555;
+                        border-radius: 5px;
+                        overflow: hidden;
+                    }
+
+                    #erogationModal .progress {
+                        width: 0%;
+                        height: 100%;
+                        background-color: #4caf50;
+                        border-radius: 5px;
+                        animation: progress 10s linear forwards;
+                    }
+
+                    @keyframes progress {
+                        0% {
+                            width: 0%;
+                        }
+                        100% {
+                            width: 100%;
+                        }
+                    }
+                </style>
+                <div class="loader">
+                    <div class="container">
+                        <div class="screen">
+                            <div class="screen-text">Erogazione bevanda in corso...</div>
+                            <div class="progress-bar">
+                                <div class="progress"></div>
+                            </div>
+                        </div>
+                        <div class="coffee-header">
+                            <div class="coffee-header__buttons coffee-header__button-one"></div>
+                            <div class="coffee-header__buttons coffee-header__button-two"></div>
+                            <div class="coffee-header__display"></div>
+                            <div class="coffee-header__details"></div>
+                        </div>
+                        <div class="coffee-medium">
+                            <div class="coffe-medium__exit"></div>
+                            <div class="coffee-medium__liquid"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-one"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-two"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-three"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-for"></div>
+                            <div class="coffee-medium__cup"></div>
+                        </div>
+                        <div class="coffee-footer"></div>
+                    </div>
+                </div>
+            `;
+
+            // Mostra il modale
+            modal.classList.remove('hidden');
+
+            // Avvia l'animazione della progress bar
+            startProgressBar();
+        }
+
+		// Funzione per chiudere il modale
+		function closeErogationModal() {
+			const modal = document.getElementById('erogationModal');
+			modal.classList.add('hidden');
+		}
+
+		// Funzione per avviare la progress bar
+		function startProgressBar() {
+			const progressBar = document.querySelector('.progress');
+			progressBar.style.animation = 'progress 10s linear forwards';
+
+			// Chiudi il modale e mostra il messaggio di conferma al completamento
+			setTimeout(() => {
+				closeErogationModal();
+				showNotification('Bevanda erogata con successo!');
+			}, 7000); 
+		}
+		
+		async function handleBeverageRequest() {
+			if (!selectedBeverage || currentCredit < selectedBeverage.price) return;
+			
+			try {
+				// Verifica lo stato della macchina prima di procedere con l'erogazione
+				await checkMachineStatusBeforeDispense();
+				
+				// Apri il modale di erogazione
+				openErogationModal();
+				
+				// Pubblica il messaggio MQTT per richiedere l'erogazione
+				publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
+					bevandaId: selectedBeverage.id,
+					importo: selectedBeverage.price,
+					zucchero: sugarLevel,
+					timestamp: Date.now()
+				});
+			} catch (error) {
+				showAlert(`Non è possibile erogare: ${error.message}`);
+			}
+		}
 
         // Configurazione globale di axios per gestire gli errori di autenticazione
         axios.interceptors.response.use(

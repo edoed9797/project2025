@@ -28,16 +28,20 @@ public class GestoreCialde {
 
     private void inizializzaSottoscrizioni() throws MqttException {
         String baseTopic = "macchine/" + idMacchina + "/cialde/";
-        mqttClient.subscribe(baseTopic + "#", (topic, messaggio) -> {
-            String azione = topic.substring(baseTopic.length());
-            switch (azione) {
-                case "ricarica":
-                    gestisciRicaricaCialde(gson.fromJson(messaggio, RichiestaCialde.class));
-                    break;
-                case "verifica":
-                    verificaStatoCialde();
-                    break;
-            }
+        
+        // Richieste di ricarica
+        mqttClient.subscribe(baseTopic + "ricarica/richiesta", (topic, messaggio) -> {
+            gestisciRicaricaCialde(gson.fromJson(messaggio, RichiestaCialde.class));
+        });
+        
+        // Richieste di verifica
+        mqttClient.subscribe(baseTopic + "verifica/richiesta", (topic, messaggio) -> {
+            verificaStatoCialde();
+        });
+        
+        // Richieste di stato
+        mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
+            pubblicaStatoCialde();
         });
     }
 
@@ -90,7 +94,7 @@ public class GestoreCialde {
     
     private void pubblicaAvvisoRicarica(int idCialda, String livelloAllarme) {
         try {
-            String topic = "macchine/" + idMacchina + "/cialde/avviso";
+            String topic = "macchine/" + idMacchina + "/cialde/avviso/risposta";
             InfoCialda info = cialde.get(idCialda);
             
             Map<String, Object> avviso = Map.of(
@@ -111,7 +115,7 @@ public class GestoreCialde {
 
     private void pubblicaStatoCialde() {
         try {
-            String topic = "macchine/" + idMacchina + "/cialde/stato";
+            String topic = "macchine/" + idMacchina + "/cialde/stato/risposta";
             Map<String, Object> stato = new ConcurrentHashMap<>();
             cialde.forEach((id, info) -> stato.put(String.valueOf(id), info.toMap()));
             mqttClient.publish(topic, gson.toJson(stato));
@@ -122,7 +126,7 @@ public class GestoreCialde {
 
     private void pubblicaAvvisoRicarica(int idCialda) {
         try {
-            String topic = "macchine/" + idMacchina + "/cialde/avviso";
+            String topic = "macchine/" + idMacchina + "/cialde/avviso/risposta";
             Map<String, Object> avviso = Map.of(
                 "idCialda", idCialda,
                 "tipo", "ricarica_necessaria",

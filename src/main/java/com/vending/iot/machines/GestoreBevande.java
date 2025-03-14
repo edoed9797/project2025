@@ -49,16 +49,20 @@ public class GestoreBevande {
 
     private void inizializzaSottoscrizioni() throws MqttException {
         String baseTopic = "macchine/" + idMacchina + "/bevande/";
-        mqttClient.subscribe(baseTopic + "#", (topic, messaggio) -> {
-            String azione = topic.substring(baseTopic.length());
-            switch (azione) {
-                case "richiesta":
-                    gestisciRichiestaBevanda(gson.fromJson(messaggio, RichiestaBevanda.class));
-                    break;
-                case "aggiorna":
-                    gestisciAggiornamentoBevanda(gson.fromJson(messaggio, AggiornamentoBevanda.class));
-                    break;
-            }
+        
+        // Sottoscrizione per richieste di bevande
+        mqttClient.subscribe(baseTopic + "richiesta", (topic, messaggio) -> {
+            gestisciRichiestaBevanda(gson.fromJson(messaggio, RichiestaBevanda.class));
+        });
+        
+        // Sottoscrizione per aggiornamento delle bevande
+        mqttClient.subscribe(baseTopic + "aggiorna", (topic, messaggio) -> {
+            gestisciAggiornamentoBevanda(gson.fromJson(messaggio, AggiornamentoBevanda.class));
+        });
+        
+        // Sottoscrizione per richieste stato delle bevande
+        mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
+            publishAggiornamentoBevande();
         });
     }
 
@@ -69,7 +73,7 @@ public class GestoreBevande {
 
     private void publishAggiornamentoBevande() {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/lista";
+            String topic = "macchine/" + idMacchina + "/bevande/lista/risposta";
 
             // Crea una mappa dettagliata con tutte le informazioni delle bevande
             Map<String, Object> dettagliAggiornamento = new HashMap<>();
@@ -134,6 +138,7 @@ public class GestoreBevande {
         }
     }
 
+
     private boolean verificaDisponibilitaBevanda(Bevanda bevanda) {
         try {
             if (bevanda == null) {
@@ -161,7 +166,7 @@ public class GestoreBevande {
 
     private void pubblicaAvvisoNessunaBevandaDisponibile() {
         try {
-            String topicAvviso = "macchine/" + idMacchina + "/bevande/avviso";
+            String topicAvviso = "macchine/" + idMacchina + "/bevande/avviso/risposta";
             Map<String, Object> avviso = Map.of(
                     "tipo", "NESSUNA_BEVANDA_DISPONIBILE",
                     "messaggio", "Tutte le bevande sono momentaneamente non disponibili",
@@ -194,7 +199,7 @@ public class GestoreBevande {
             }
 
             // Verifica pagamento
-            if (gestoreCassa.processaPagamento(bevanda.getPrezzo())) {
+            if (gestoreCassa.processaPagamento(bevanda.getPrezzo(), bevanda.getId())) {
                 // Simulazione erogazione
                 pubblicaStato("preparazione");
                 Thread.sleep(5000); // Simula tempo di preparazione
@@ -203,14 +208,7 @@ public class GestoreBevande {
                 gestoreCialde.consumaCialde(bevanda.getCialde());
 
                 pubblicaStato("completata");
-                registraErogazione(bevanda);
-                // Aggiorna il repository delle transazioni
-                TransazioneRepository transazioneRepo = ServiceRegistry.get(TransazioneRepository.class);
-                Optional<Transazione> transazione = transazioneRepo.findById(richiesta.transazioneId);
-                if (transazione.isPresent()) {
-                    Transazione t = transazione.get();
-                    transazioneRepo.update(t);
-                }
+                
             } else {
                 pubblicaErrore("Credito insufficiente");
             }
@@ -231,7 +229,7 @@ public class GestoreBevande {
 
     private void pubblicaStato(String stato) {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/stato";
+            String topic = "macchine/" + idMacchina + "/bevande/stato/risposta";
             Map<String, Object> statoErogazione = Map.of(
                     "stato", stato,
                     "timestamp", System.currentTimeMillis()
@@ -244,7 +242,7 @@ public class GestoreBevande {
 
     private void pubblicaAggiornamentoBevande() {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/lista";
+            String topic = "macchine/" + idMacchina + "/bevande/lista/risposta";
             mqttClient.publish(topic, gson.toJson(bevande));
         } catch (MqttException e) {
             System.err.println("Errore pubblicazione bevande: " + e.getMessage());
@@ -253,7 +251,7 @@ public class GestoreBevande {
 
     private void pubblicaErrore(String messaggio) {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/errore";
+            String topic = "macchine/" + idMacchina + "/bevande/errore/risposta";
             Map<String, Object> errore = Map.of(
                     "messaggio", messaggio,
                     "timestamp", System.currentTimeMillis()
@@ -269,7 +267,7 @@ public class GestoreBevande {
         Transazione transazione = new Transazione();
 
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/erogazione";
+            String topic = "macchine/" + idMacchina + "/bevande/erogazione/completata";
             int idT = transazioneRepo.getLastTransactionId() + 1;
             transazione.setId(idT);
             transazione.setMacchinaId(idMacchina);

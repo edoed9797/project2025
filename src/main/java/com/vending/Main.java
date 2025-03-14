@@ -1,7 +1,6 @@
 package com.vending;
 
 import static spark.Spark.*;
-
 import javax.net.ssl.HttpsURLConnection;
 import javax.net.ssl.SSLContext;
 import javax.net.ssl.TrustManager;
@@ -10,6 +9,9 @@ import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.vending.core.models.*;
 import com.vending.core.repositories.*;
 import com.vending.api.controllers.*;
@@ -719,18 +721,35 @@ public class Main {
     private static void setupMQTTTopics() throws MqttException {
 
         // Topic per lo stato delle macchine
-        mqttClient.subscribe("macchine/+/stato", (topic, message) -> {
+    	mqttClient.subscribe("macchine/+/stato/richiesta", (topic, message) -> {
             logger.debug("Ricevuto messaggio stato: {} - {}", topic, message);
             ServiceRegistry.get(ManutenzioneService.class).processaMacchinaStato(topic, message);
-
             String[] parts = topic.split("/");
-            if (parts.length >= 2) {
+            if (parts.length >= 3) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
                     if (macchina != null) {
                         macchina.pubblicaStatoMacchina();
                     }
+                    else {
+                        logger.warn("Macchina {} non trovata per richiesta stato", macchinaId);
+                    }
+                } catch (NumberFormatException e) {
+                    logger.error("ID macchina non valido nel topic: {}", topic);
+                }
+            }
+        });
+    	
+    	// Topic per ricevere i messaggi di stato (aggiornamenti autonomi dalle macchine)
+        mqttClient.subscribe("macchine/+/stato/aggiornamento", (topic, message) -> {
+            logger.debug("Ricevuto aggiornamento stato: {} - {}", topic, message);
+            String[] parts = topic.split("/");
+            if (parts.length >= 3) {
+                try {
+                    int macchinaId = Integer.parseInt(parts[1]);
+                    // Processa il messaggio di aggiornamento stato
+                    ServiceRegistry.get(ManutenzioneService.class).processaMacchinaStato(topic, message);
                 } catch (NumberFormatException e) {
                     logger.error("ID macchina non valido nel topic: {}", topic);
                 }
@@ -751,25 +770,59 @@ public class Main {
                     if (macchina != null) {
                         switch (operazione) {
                             case "inserimentoCredito":
-                                double importo = Double.parseDouble(message);
+                                double importo;
+                                try {
+                                    // Prima prova come JSON
+                                    JsonObject jsonPayload = JsonParser.parseString(message).getAsJsonObject();
+                                    importo = jsonPayload.has("importo") ? 
+                                             jsonPayload.get("importo").getAsDouble() : 0.0;
+                                } catch (Exception e) {
+                                    // Se fallisce, prova come valore diretto
+                                    try {
+                                        importo = Double.parseDouble(message);
+                                    } catch (NumberFormatException ex) {
+                                        logger.error("Impossibile interpretare il credito: {}", message);
+                                        return;
+                                    }
+                                }
+                                
                                 boolean successo = macchina.gestoreCassa.gestisciInserimentoMoneta(importo);
                                 if (successo) {
                                     logger.info("Credito inserito con successo nella macchina {}: {}", macchinaId, importo);
+                                    String statoTopic = "macchine/" + macchinaId + "/cassa/stato/risposta";
+                                    mqttClient.publish(statoTopic, gson.toJson(macchina.gestoreCassa.ottieniStato()));
                                 } else {
                                     logger.warn("Impossibile inserire credito nella macchina {}: {}", macchinaId, importo);
                                 }
                                 break;
 
                             case "richiestaBevanda":
-                                int bevandaId = Integer.parseInt(message);
-                                macchina.gestisciErogazioneBevanda(bevandaId, 0); // Livello zucchero default
-                                logger.info("Richiesta bevanda {} nella macchina {}", bevandaId, macchinaId);
+                                try {
+                                    // Prima prova come JSON
+                                    JsonObject jsonPayload = JsonParser.parseString(message).getAsJsonObject();
+                                    int bevandaId = jsonPayload.get("bevandaId").getAsInt();
+                                    int livelloZucchero = jsonPayload.has("zucchero") ? 
+                                        jsonPayload.get("zucchero").getAsInt() : 0;
+                                    macchina.gestisciErogazioneBevanda(bevandaId, livelloZucchero);
+                                } catch (Exception e) {
+                                    // Se fallisce, prova come valore diretto
+                                    try {
+                                        int bevandaId = Integer.parseInt(message);
+                                        macchina.gestisciErogazioneBevanda(bevandaId, 0);
+                                    } catch (NumberFormatException ex) {
+                                        logger.error("Formato messaggio non valido per richiesta bevanda: {}", message);
+                                        return;
+                                    }
+                                }
                                 break;
 
                             case "richiestaResto":
-                                macchina.gestoreCassa.gestisciRestituzioneCredito();
-                                logger.info("Resto richiesto nella macchina {}", macchinaId);
-                                break;
+                            	 macchina.gestoreCassa.gestisciRestituzioneCredito();
+                                 logger.info("Resto richiesto nella macchina {}", macchinaId);
+                                 // Pubblica lo stato aggiornato dopo la restituzione
+                                 String statoCassaTopic = "macchine/" + macchinaId + "/cassa/stato/risposta";
+                                 mqttClient.publish(statoCassaTopic, gson.toJson(macchina.gestoreCassa.ottieniStato()));
+                                 break;
 
                             default:
                                 logger.warn("Operazione non riconosciuta: {}", operazione);
@@ -811,10 +864,10 @@ public class Main {
         });
         
      // Topic per lo stato della cassa
-        mqttClient.subscribe("macchine/+/cassa/stato", (topic, message) -> {
+        mqttClient.subscribe("macchine/+/cassa/stato/richiesta", (topic, message) -> {
             logger.debug("Ricevuta richiesta stato cassa: {} - {}", topic, message);
             String[] parts = topic.split("/");
-            if (parts.length >= 3) {
+            if (parts.length >= 4) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
@@ -839,10 +892,10 @@ public class Main {
         });
 
         // Topic per lo stato delle bevande
-        mqttClient.subscribe("macchine/+/bevande/stato", (topic, message) -> {
+        mqttClient.subscribe("macchine/+/bevande/stato/richiesta", (topic, message) -> {
             logger.debug("Ricevuta richiesta stato bevande: {} - {}", topic, message);
             String[] parts = topic.split("/");
-            if (parts.length >= 3) {
+            if (parts.length >= 4) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
@@ -851,7 +904,6 @@ public class Main {
                         // Ottieni lo stato delle bevande
                         Map<String, Object> statoBevande = macchina.gestoreBevande.ottieniStato();
                         
-                        // Pubblica lo stato come risposta
                         String statoTopic = "macchine/" + macchinaId + "/bevande/stato/risposta";
                         mqttClient.publish(statoTopic, gson.toJson(statoBevande));
                         logger.debug("Stato bevande pubblicato per macchina {}", macchinaId);
@@ -881,10 +933,22 @@ public class Main {
                             case "ricarica":
                                 // Gestisci la ricarica delle cialde
                                 macchina.gestoreCialde.gestisciRicaricaCialde(new GestoreCialde.RichiestaCialde());
+                                // Pubblica lo stato aggiornato
+                                String statoTopic = "macchine/" + macchinaId + "/cialde/stato/risposta";
+                                mqttClient.publish(statoTopic, gson.toJson(macchina.gestoreCialde.ottieniStato()));
                                 break;
                             case "verifica":
                                 // Verifica lo stato delle cialde
                                 macchina.gestoreCialde.verificaStatoCialde();
+                                String verificaTopic = "macchine/" + macchinaId + "/cialde/stato/risposta";
+                                mqttClient.publish(verificaTopic, gson.toJson(macchina.gestoreCialde.ottieniStato()));
+                                break;
+                            case "stato":
+                                // Pubblica lo stato attuale delle cialde
+                                Map<String, Object> statoCialde = macchina.gestoreCialde.ottieniStato();
+                                String topicRisposta = "macchine/" + macchinaId + "/cialde/stato/risposta";
+                                mqttClient.publish(topicRisposta, gson.toJson(statoCialde));
+                                logger.debug("Stato cialde pubblicato per macchina {}", macchinaId);
                                 break;
                             default:
                                 logger.warn("Azione cialde non riconosciuta: {}", azione);

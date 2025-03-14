@@ -40,19 +40,25 @@ public class GestoreManutenzione {
 
     private void inizializzaSottoscrizioni() throws MqttException {
         String baseTopic = "macchine/" + idMacchina + "/manutenzione/";
-        mqttClient.subscribe(baseTopic + "#", (topic, messaggio) -> {
-            String azione = topic.substring(baseTopic.length());
-            switch (azione) {
-                case "segnalazione":
-                    gestisciSegnalazione(gson.fromJson(messaggio, SegnalazioneProblema.class));
-                    break;
-                case "risoluzione":
-                    gestisciRisoluzione(gson.fromJson(messaggio, RisoluzioneProblema.class));
-                    break;
-                case "verifica":
-                    verificaStato();
-                    break;
-            }
+        
+        // Sottoscrizione per segnalazioni
+        mqttClient.subscribe(baseTopic + "segnalazione/richiesta", (topic, messaggio) -> {
+            gestisciSegnalazione(gson.fromJson(messaggio, SegnalazioneProblema.class));
+        });
+        
+        // Sottoscrizione per risoluzioni
+        mqttClient.subscribe(baseTopic + "risoluzione/richiesta", (topic, messaggio) -> {
+            gestisciRisoluzione(gson.fromJson(messaggio, RisoluzioneProblema.class));
+        });
+        
+        // Sottoscrizione per verifiche di stato
+        mqttClient.subscribe(baseTopic + "verifica/richiesta", (topic, messaggio) -> {
+            verificaStato();
+        });
+        
+        // Sottoscrizione per richieste di stato
+        mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
+            pubblicaStatoManutenzione();
         });
     }
 
@@ -63,7 +69,7 @@ public class GestoreManutenzione {
             segnalazione.descrizione = descrizione;
             segnalazione.dettagli = dettagliAggiuntivi;
 
-            String topic = "macchine/" + idMacchina + "/manutenzione/segnalazione";
+            String topic = "macchine/" + idMacchina + "/manutenzione/segnalazione/notifica";
             mqttClient.publish(topic, gson.toJson(segnalazione));
 
             String descProblema = "Problema " + segnalazione.tipo + ": " + segnalazione.descrizione;
@@ -105,7 +111,7 @@ public class GestoreManutenzione {
             risoluzione.tecnico = tecnico;
             risoluzione.timestampRisoluzione = System.currentTimeMillis();
 
-            String topic = "macchine/" + idMacchina + "/manutenzione/risoluzione";
+            String topic = "macchine/" + idMacchina + "/manutenzione/risoluzione/completata";
             mqttClient.publish(topic, gson.toJson(risoluzione));
 
             problemiAttivi.remove(idProblema);
@@ -163,12 +169,12 @@ public class GestoreManutenzione {
 
     private void pubblicaStatoManutenzione() {
         try {
-            String topic = "macchine/" + idMacchina + "/manutenzione/stato";
+            String topic = "macchine/" + idMacchina + "/manutenzione/stato/risposta";
             Map<String, Object> stato = getStatoManutenzione();
             mqttClient.publish(topic, gson.toJson(stato));
 
             if ((boolean) stato.get("richiedeIntervento")) {
-                String topicAvviso = "macchine/" + idMacchina + "/manutenzione/avviso";
+                String topicAvviso = "macchine/" + idMacchina + "/manutenzione/avviso/notifica";
                 Map<String, Object> avviso = Map.of(
                         "tipo", "RICHIESTA_INTERVENTO",
                         "numeroProblemi", stato.get("numeroProblemi"),
@@ -187,7 +193,7 @@ public class GestoreManutenzione {
 
         if (interventoUrgente) {
             try {
-                String topic = "macchine/" + idMacchina + "/manutenzione/urgente";
+                String topic = "macchine/" + idMacchina + "/manutenzione/urgente/notifica";
                 Map<String, Object> avviso = Map.of(
                         "tipo", "INTERVENTO_URGENTE",
                         "timestamp", System.currentTimeMillis(),
