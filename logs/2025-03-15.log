@@ -1,0 +1,337 @@
+[2025-03-15 16:35:56] INFO - Richiesta: GET /favicon.ico - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:35:57] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:03] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:06] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:08] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:30] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:32] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:41] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:44] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:47] INFO - Richiesta: GET /api/admin/utenti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:48] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:48] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:55] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:36:56] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:47:53] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:47:53] INFO - Richiesta: GET /favicon.ico - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:08] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:11] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:12] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:15] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:17] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:18] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:19] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:34] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:37] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:38] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:59] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:48:59] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:49:02] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:49:03] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:49:04] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:49:04] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:50:44] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:50:45] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:50:46] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:50:48] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:50:57] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:51:32] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 16:51:32] INFO - Richiesta: GET /favicon.ico - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:26] INFO - Richiesta: GET /api/istituti/1/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:27] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:32] INFO - Richiesta: GET /api/istituti/2/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:32] INFO - Richiesta: GET /api/macchine/10 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:35] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:38] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:39] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:40] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:47] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:48] INFO - Richiesta: GET /api/admin/utenti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:50] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:50] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:53] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:54] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:54] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:58] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:08:59] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:09:21] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:09:23] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:09:29] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:09:34] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:36] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:38] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:38] INFO - Richiesta: GET /favicon.ico - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:41] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:43] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:44] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:45] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:49] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:49] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:52] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:53] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:25:54] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:26:00] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:26:00] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:29] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:32] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:33] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:34] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:34] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:36] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:37] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:39] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:39] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:44] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:49] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:49] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:53] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:28:53] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:29:17] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:29:18] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:29:54] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:29:54] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:29:56] INFO - Richiesta: GET /api/macchine/2 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:29:56] INFO - Richiesta: GET /api/macchine/2/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:37] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:37] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:40] INFO - Richiesta: GET /api/macchine/2 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:40] INFO - Richiesta: GET /api/macchine/2/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:46] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:50] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:51] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:54] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:30:59] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:31:01] INFO - Richiesta: GET /api/istituti/1/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:31:02] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:32:32] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:32:32] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:32:37] INFO - Richiesta: GET /api/macchine/6 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:32:37] INFO - Richiesta: GET /api/macchine/6/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:34:09] INFO - Richiesta: GET /spegni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:41:33] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:41:35] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:41:36] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:41:37] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:41:37] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:42:06] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:42:06] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:42:39] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 17:42:39] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:00:51] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:00:54] INFO - Richiesta: GET /spegni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:02:00] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:02:51] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:02:51] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:03:00] INFO - Richiesta: GET /api/macchine/4 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:03:00] INFO - Richiesta: GET /api/macchine/4/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:04:30] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:04:34] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:04:47] INFO - Richiesta: GET /api/istituti/2/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:04:51] INFO - Richiesta: GET /api/macchine/2 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:05:08] INFO - Richiesta: GET /api/istituti/1/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:05:08] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:05:34] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:05:41] INFO - Richiesta: GET /api/macchine/10 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:05:55] INFO - Richiesta: PUT /api/admin/macchine/10/stato - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:05:55] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:06:09] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:06:24] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:06:54] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:06:56] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:03] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:04] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:04] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:08] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:10] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:11] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:17] INFO - Richiesta: PUT /api/admin/macchine/10/stato - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:17] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:21] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:23] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:23] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:25] INFO - Richiesta: GET /api/macchine/10 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:25] INFO - Richiesta: GET /api/macchine/10/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:28] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:30] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:32] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:07:47] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:03] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:25] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:29] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:30] INFO - Richiesta: GET /api/admin/transazioni/macchina/8 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:32] INFO - Richiesta: GET /api/admin/utenti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:38] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:08:38] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:03] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:03] INFO - Richiesta: GET /api/admin/statistiche/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:05] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:05] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:16] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:17] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:17] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:19] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:19] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:24] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:24] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:09:49] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:10:36] INFO - Richiesta: POST /api/auth/login - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:10:39] INFO - Richiesta: POST /api/auth/login - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:18] INFO - Richiesta: POST /api/auth/login - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:20] INFO - Richiesta: POST /api/auth/login - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:23] INFO - Richiesta: GET /favicon.ico - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:29] INFO - Richiesta: POST /api/auth/login - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:37] INFO - Richiesta: POST /api/auth/login - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:47] INFO - Richiesta: POST /api/auth/login - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:48] INFO - Richiesta: GET /istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:50] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:53] INFO - Richiesta: GET /istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:53] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:54] INFO - Richiesta: GET /istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:54] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:56] INFO - Richiesta: GET /istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:11:56] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:01] INFO - Richiesta: GET /istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:02] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:46] INFO - Richiesta: POST /api/auth/login - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:46] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:47] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:50] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:52] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:52] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:52] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:52] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:12:52] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:01] INFO - Richiesta: GET /api/macchine/7 - Risposta: 404 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:01] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:06] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:07] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:11] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:12] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:12] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:12] INFO - Richiesta: GET /api/manutenzione - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:22] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:27] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:34] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:13:52] INFO - Richiesta: GET /api/manutenzione/tecnico/18 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:14:10] INFO - Richiesta: POST /api/auth/login - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:14:10] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:14:13] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:15:32] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:23:57] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:23:57] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:23:59] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:24:00] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:24:31] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:24:32] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:24:48] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:24:48] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:28:25] ERROR - Errore richiesta: GET /api/macchine/:id/bevande: For input string: ":id"
+Exception: For input string: ":id"
+	at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
+	at java.base/java.lang.Integer.parseInt(Integer.java:588)
+	at java.base/java.lang.Integer.parseInt(Integer.java:685)
+	at com.vending.Main.lambda$21(Main.java:331)
+	at spark.RouteImpl$1.handle(RouteImpl.java:72)
+	at spark.http.matching.Routes.execute(Routes.java:61)
+	at spark.http.matching.MatcherFilter.doFilter(MatcherFilter.java:134)
+	at spark.embeddedserver.jetty.JettyHandler.doHandle(JettyHandler.java:50)
+	at org.eclipse.jetty.server.session.SessionHandler.doScope(SessionHandler.java:1598)
+	at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:141)
+	at org.eclipse.jetty.server.handler.HandlerWrapper.handle(HandlerWrapper.java:127)
+	at org.eclipse.jetty.server.Server.handle(Server.java:516)
+	at org.eclipse.jetty.server.HttpChannel.lambda$handle$1(HttpChannel.java:487)
+	at org.eclipse.jetty.server.HttpChannel.dispatch(HttpChannel.java:732)
+	at org.eclipse.jetty.server.HttpChannel.handle(HttpChannel.java:479)
+	at org.eclipse.jetty.server.HttpConnection.onFillable(HttpConnection.java:277)
+	at org.eclipse.jetty.io.AbstractConnection$ReadCallback.succeeded(AbstractConnection.java:311)
+	at org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:105)
+	at org.eclipse.jetty.io.ssl.SslConnection$DecryptedEndPoint.onFillable(SslConnection.java:555)
+	at org.eclipse.jetty.io.ssl.SslConnection.onFillable(SslConnection.java:410)
+	at org.eclipse.jetty.io.ssl.SslConnection$2.succeeded(SslConnection.java:164)
+	at org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:105)
+	at org.eclipse.jetty.io.ChannelEndPoint$1.run(ChannelEndPoint.java:104)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.runTask(EatWhatYouKill.java:338)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.doProduce(EatWhatYouKill.java:315)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.tryProduce(EatWhatYouKill.java:173)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.run(EatWhatYouKill.java:131)
+	at org.eclipse.jetty.util.thread.ReservedThreadExecutor$ReservedThread.run(ReservedThreadExecutor.java:409)
+	at org.eclipse.jetty.util.thread.QueuedThreadPool.runJob(QueuedThreadPool.java:883)
+	at org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.run(QueuedThreadPool.java:1034)
+	at java.base/java.lang.Thread.run(Thread.java:1570)
+
+[2025-03-15 19:28:35] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:30:29] INFO - Richiesta: GET /loginMsg.js - Risposta: 200 - IP: 192.168.1.69
+[2025-03-15 19:30:30] INFO - Richiesta: GET /cgi/get.cgi - Risposta: 200 - IP: 192.168.1.69
+[2025-03-15 19:52:47] ERROR - Errore richiesta: GET /api/macchine/:id/bevande: For input string: ":id"
+Exception: For input string: ":id"
+	at java.base/java.lang.NumberFormatException.forInputString(NumberFormatException.java:67)
+	at java.base/java.lang.Integer.parseInt(Integer.java:588)
+	at java.base/java.lang.Integer.parseInt(Integer.java:685)
+	at com.vending.Main.lambda$21(Main.java:331)
+	at spark.RouteImpl$1.handle(RouteImpl.java:72)
+	at spark.http.matching.Routes.execute(Routes.java:61)
+	at spark.http.matching.MatcherFilter.doFilter(MatcherFilter.java:134)
+	at spark.embeddedserver.jetty.JettyHandler.doHandle(JettyHandler.java:50)
+	at org.eclipse.jetty.server.session.SessionHandler.doScope(SessionHandler.java:1598)
+	at org.eclipse.jetty.server.handler.ScopedHandler.handle(ScopedHandler.java:141)
+	at org.eclipse.jetty.server.handler.HandlerWrapper.handle(HandlerWrapper.java:127)
+	at org.eclipse.jetty.server.Server.handle(Server.java:516)
+	at org.eclipse.jetty.server.HttpChannel.lambda$handle$1(HttpChannel.java:487)
+	at org.eclipse.jetty.server.HttpChannel.dispatch(HttpChannel.java:732)
+	at org.eclipse.jetty.server.HttpChannel.handle(HttpChannel.java:479)
+	at org.eclipse.jetty.server.HttpConnection.onFillable(HttpConnection.java:277)
+	at org.eclipse.jetty.io.AbstractConnection$ReadCallback.succeeded(AbstractConnection.java:311)
+	at org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:105)
+	at org.eclipse.jetty.io.ssl.SslConnection$DecryptedEndPoint.onFillable(SslConnection.java:555)
+	at org.eclipse.jetty.io.ssl.SslConnection.onFillable(SslConnection.java:410)
+	at org.eclipse.jetty.io.ssl.SslConnection$2.succeeded(SslConnection.java:164)
+	at org.eclipse.jetty.io.FillInterest.fillable(FillInterest.java:105)
+	at org.eclipse.jetty.io.ChannelEndPoint$1.run(ChannelEndPoint.java:104)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.runTask(EatWhatYouKill.java:338)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.doProduce(EatWhatYouKill.java:315)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.tryProduce(EatWhatYouKill.java:173)
+	at org.eclipse.jetty.util.thread.strategy.EatWhatYouKill.run(EatWhatYouKill.java:131)
+	at org.eclipse.jetty.util.thread.ReservedThreadExecutor$ReservedThread.run(ReservedThreadExecutor.java:409)
+	at org.eclipse.jetty.util.thread.QueuedThreadPool.runJob(QueuedThreadPool.java:883)
+	at org.eclipse.jetty.util.thread.QueuedThreadPool$Runner.run(QueuedThreadPool.java:1034)
+	at java.base/java.lang.Thread.run(Thread.java:1570)
+
+[2025-03-15 19:52:49] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:52:50] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:52:52] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:52:53] INFO - Richiesta: GET /spegni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:53:35] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:54:27] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:54:27] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:54:53] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:54:53] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:55:49] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:55:54] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:55:55] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:55:57] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:55:58] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:03] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:04] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:06] INFO - Richiesta: GET /api/admin/cialde - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:10] INFO - Richiesta: GET /api/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:14] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:15] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 19:56:25] INFO - Richiesta: GET /api/macchine/6 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:05:34] INFO - Richiesta: GET /spegni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:06:19] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:17] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:17] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:19] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:19] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:41] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:41] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:43] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:12:43] INFO - Richiesta: GET /api/macchine/1/bevande - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:26] INFO - Richiesta: POST /api/auth/refresh - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:29] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:30] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:31] INFO - Richiesta: GET /api/macchine/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:44] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:46] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:16:48] INFO - Richiesta: GET /api/admin/transazioni/macchina/1 - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+[2025-03-15 20:17:59] INFO - Richiesta: GET /spegni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]

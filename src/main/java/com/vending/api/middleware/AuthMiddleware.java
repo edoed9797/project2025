@@ -97,7 +97,10 @@ public class AuthMiddleware {
                 "/api/bevande",
                 "/api/bevande/*",
                 "/api/auth/*",
-                "/api/auth/*"
+                "/api/auth/*",
+                "/pages/client/machineSelection.html",
+                "/css/*",
+                "/js/*"
         };
 
         for (String endpoint : publicEndpoints) {

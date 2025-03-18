@@ -10,6 +10,9 @@ import java.security.SecureRandom;
 import java.security.cert.X509Certificate;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import com.google.gson.JsonSyntaxException;
 import com.vending.core.models.*;
 import com.vending.core.repositories.*;
 import com.vending.api.controllers.*;
@@ -34,6 +37,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.io.FileInputStream;
 import java.security.KeyStore;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -340,122 +344,70 @@ public class Main {
             int macchinaId = Integer.parseInt(req.params(":macchinaId"));
             return macchinaController.verificaDisponibilitaBevanda(bevandaId, macchinaId, res);
         });
-
-       /* // Rotte per la gestione del denaro e erogazione bevande
-        path("/api/macchine/:id", () -> {
-            // Inserimento denaro
-            post("/insertMoney", (req, res) -> {
-                int macchinaId = Integer.parseInt(req.params(":id"));
-                double importo = Double.parseDouble(req.queryParams("importo"));
-
-                // Recupera la macchina e verifica che sia attiva
-                Macchina macchina = ServiceRegistry.get(MacchinaRepository.class).findById(macchinaId);
-                if (macchina == null) {
-                    res.status(404);
-                    return gson.toJson(Map.of("error", "Macchina non trovata"));
+     // Gestione statistiche bevande
+        get("/api/admin/statistiche/bevande", (req, res) -> {
+            try {
+                // Recupera statistiche aggregate per tutte le macchine
+                List<Macchina> macchine = ServiceRegistry.get(MacchinaRepository.class).findAll();
+                Map<String, Object> statisticheAggregate = new HashMap<>();
+                List<Map<String, Object>> venditeTotali = new ArrayList<>();
+                Map<Integer, Double> ricavoTotalePerBevanda = new HashMap<>();
+                Map<Integer, Long> venditePerBevanda = new HashMap<>();
+                int totaleTransazioni = 0;
+                
+                // Aggregazione delle statistiche da tutte le macchine
+                for (Macchina macchina : macchine) {
+                    int macchinaId = macchina.getId();
+                    if (macchineAttive.containsKey(macchinaId)) {
+                        Map<String, Object> statisticheMacchina = macchineAttive.get(macchinaId).gestoreBevande.ottieniStatistiche();
+                        
+                        // Aggrega dati dalle statistiche della macchina
+                        @SuppressWarnings("unchecked")
+                        List<Map<String, Object>> vendite = (List<Map<String, Object>>) statisticheMacchina.getOrDefault("venditeBevande", new ArrayList<>());
+                        
+                        for (Map<String, Object> vendita : vendite) {
+                            int bevandaId = ((Number) vendita.get("id")).intValue();
+                            String nomeBevanda = (String) vendita.get("nome");
+                            long quantita = ((Number) vendita.get("quantitaVendute")).longValue();
+                            double ricavo = ((Number) vendita.get("ricavoTotale")).doubleValue();
+                            
+                            // Aggiorna statistiche aggregate
+                            venditePerBevanda.put(bevandaId, venditePerBevanda.getOrDefault(bevandaId, 0L) + quantita);
+                            ricavoTotalePerBevanda.put(bevandaId, ricavoTotalePerBevanda.getOrDefault(bevandaId, 0.0) + ricavo);
+                        }
+                        
+                        totaleTransazioni += ((Number) statisticheMacchina.getOrDefault("totaleTransazioni", 0)).intValue();
+                    }
                 }
-
-                if (macchina.getStatoId() != 1) { // 1 = Attiva
-                    res.status(400);
-                    return gson.toJson(Map.of("error", "Macchina non disponibile"));
-                }
-
-                // Crea un'istanza del GestoreCassa per questa macchina
-                GestoreCassa gestoreCassa = new GestoreCassa(macchinaId, macchina.getCassaMassima());
-
-                // Tenta di inserire il denaro
-                boolean inserimentoRiuscito = gestoreCassa.gestisciInserimentoMoneta(importo);
-
-                if (inserimentoRiuscito) {
-                    return gson.toJson(Map.of(
-                            "success", true,
-                            "message", "Denaro inserito con successo",
-                            "creditoAttuale", gestoreCassa.ottieniStato().get("creditoAttuale")
-                    ));
-                } else {
-                    res.status(400);
-                    return gson.toJson(Map.of("error", "Impossibile accettare il denaro"));
-                }
-            });
-
-            // Erogazione bevanda
-            post("/erogazione", (req, res) -> {
-                int macchinaId = Integer.parseInt(req.params(":id"));
-                Map<String, Object> body = gson.fromJson(req.body(), Map.class);
-                int bevandaId = ((Number) body.get("bevandaId")).intValue();
-                double importo = ((Number) body.get("importo")).doubleValue();
-
-                // Recupera la macchina
-                MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
-                if (macchina == null) {
-                    res.status(404);
-                    return gson.toJson(Map.of("error", "Macchina non trovata"));
-                }
-
-                // Recupera la bevanda per verificare il prezzo
+                
+                // Prepara il risultato finale
                 BevandaRepository bevandaRepo = ServiceRegistry.get(BevandaRepository.class);
-                Optional<Bevanda> bevanda = bevandaRepo.findById(bevandaId);
-                if (!bevanda.isPresent()) {
-                    res.status(404);
-                    return gson.toJson(Map.of("error", "Bevanda non trovata"));
+                List<Bevanda> tutteLeBevandeList = bevandaRepo.findAll();
+                
+                for (Bevanda bevanda : tutteLeBevandeList) {
+                    int bevandaId = bevanda.getId();
+                    Map<String, Object> statBevanda = new HashMap<>();
+                    statBevanda.put("id", bevandaId);
+                    statBevanda.put("nome", bevanda.getNome());
+                    statBevanda.put("quantitaVendute", venditePerBevanda.getOrDefault(bevandaId, 0L));
+                    statBevanda.put("ricavoTotale", ricavoTotalePerBevanda.getOrDefault(bevandaId, 0.0));
+                    
+                    venditeTotali.add(statBevanda);
                 }
-
-                // Crea la transazione
-                TransazioneRepository transazioneRepo = ServiceRegistry.get(TransazioneRepository.class);
-                Transazione transazione = new Transazione();
-                int idT = transazioneRepo.getLastTransactionId() + 1;
-                transazione.setId(idT);
-                transazione.setMacchinaId(macchinaId);
-                transazione.setBevandaId(bevandaId);
-                transazione.setImporto(importo);
-                transazione.setDataOra(LocalDateTime.now());
-
-                // Pubblica la richiesta sul topic MQTT appropriato
-                String topic = "macchine/" + macchinaId + "/bevande/richiesta";
-                Map<String, Object> message = Map.of(
-                        "bevandaId", bevandaId,
-                        "importo", importo,
-                        "timestamp", System.currentTimeMillis(),
-                        "transazioneId", transazione.getId()
-                );
-
-                try {
-                    mqttClient.publish(topic, gson.toJson(message));
-                    transazione = transazioneRepo.save(transazione);
-
-                    return gson.toJson(Map.of(
-                            "success", true,
-                            "message", "Richiesta erogazione inviata",
-                            "transazioneId", transazione.getId()
-                    ));
-                } catch (Exception e) {
-                    res.status(500);
-                    return gson.toJson(Map.of("error", "Errore durante il salvataggio della transazione: " + e.getMessage()));
-                }
-            });
-
-            // Annulla inserimento e restituisci credito
-            post("/cancelInsert", (req, res) -> {
-                int macchinaId = Integer.parseInt(req.params(":id"));
-
-                // Recupera la macchina
-                Macchina macchina = ServiceRegistry.get(MacchinaRepository.class).findById(macchinaId);
-                if (macchina == null) {
-                    res.status(404);
-                    return gson.toJson(Map.of("error", "Macchina non trovata"));
-                }
-
-                // Crea un'istanza del GestoreCassa
-                GestoreCassa gestoreCassa = new GestoreCassa(macchinaId, macchina.getCassaMassima());
-
-                // Gestisci la restituzione del credito
-                gestoreCassa.gestisciRestituzioneCredito();
-
-                return gson.toJson(Map.of(
-                        "success", true,
-                        "message", "Credito restituito"
-                ));
-            });*/
+                
+                statisticheAggregate.put("venditeBevande", venditeTotali);
+                statisticheAggregate.put("totaleTransazioni", totaleTransazioni);
+                statisticheAggregate.put("timestamp", System.currentTimeMillis());
+                
+                res.type("application/json");
+                return gson.toJson(statisticheAggregate);
+            } catch (Exception e) {
+                logger.error("Errore nel recupero delle statistiche aggregate: {}", e.getMessage());
+                res.status(500);
+                return gson.toJson(Map.of("errore", "Errore nel recupero delle statistiche: " + e.getMessage()));
+            }
+        });
+        
 
             // Verifica stato macchina
             get("/stato", (req, res) -> {
@@ -719,18 +671,35 @@ public class Main {
     private static void setupMQTTTopics() throws MqttException {
 
         // Topic per lo stato delle macchine
-        mqttClient.subscribe("macchine/+/stato", (topic, message) -> {
+    	mqttClient.subscribe("macchine/+/stato/richiesta", (topic, message) -> {
             logger.debug("Ricevuto messaggio stato: {} - {}", topic, message);
             ServiceRegistry.get(ManutenzioneService.class).processaMacchinaStato(topic, message);
-
             String[] parts = topic.split("/");
-            if (parts.length >= 2) {
+            if (parts.length >= 3) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
                     if (macchina != null) {
                         macchina.pubblicaStatoMacchina();
                     }
+                    else {
+                        logger.warn("Macchina {} non trovata per richiesta stato", macchinaId);
+                    }
+                } catch (NumberFormatException e) {
+                    logger.error("ID macchina non valido nel topic: {}", topic);
+                }
+            }
+        });
+    	
+    	// Topic per ricevere i messaggi di stato (aggiornamenti autonomi dalle macchine)
+        mqttClient.subscribe("macchine/+/stato/aggiornamento", (topic, message) -> {
+            logger.debug("Ricevuto aggiornamento stato: {} - {}", topic, message);
+            String[] parts = topic.split("/");
+            if (parts.length >= 3) {
+                try {
+                    int macchinaId = Integer.parseInt(parts[1]);
+                    // Processa il messaggio di aggiornamento stato
+                    ServiceRegistry.get(ManutenzioneService.class).processaMacchinaStato(topic, message);
                 } catch (NumberFormatException e) {
                     logger.error("ID macchina non valido nel topic: {}", topic);
                 }
@@ -751,25 +720,59 @@ public class Main {
                     if (macchina != null) {
                         switch (operazione) {
                             case "inserimentoCredito":
-                                double importo = Double.parseDouble(message);
+                                double importo;
+                                try {
+                                    // Prima prova come JSON
+                                    JsonObject jsonPayload = JsonParser.parseString(message).getAsJsonObject();
+                                    importo = jsonPayload.has("importo") ? 
+                                             jsonPayload.get("importo").getAsDouble() : 0.0;
+                                } catch (Exception e) {
+                                    // Se fallisce, prova come valore diretto
+                                    try {
+                                        importo = Double.parseDouble(message);
+                                    } catch (NumberFormatException ex) {
+                                        logger.error("Impossibile interpretare il credito: {}", message);
+                                        return;
+                                    }
+                                }
+                                
                                 boolean successo = macchina.gestoreCassa.gestisciInserimentoMoneta(importo);
                                 if (successo) {
                                     logger.info("Credito inserito con successo nella macchina {}: {}", macchinaId, importo);
+                                    String statoTopic = "macchine/" + macchinaId + "/cassa/stato/risposta";
+                                    mqttClient.publish(statoTopic, gson.toJson(macchina.gestoreCassa.ottieniStato()));
                                 } else {
                                     logger.warn("Impossibile inserire credito nella macchina {}: {}", macchinaId, importo);
                                 }
                                 break;
 
                             case "richiestaBevanda":
-                                int bevandaId = Integer.parseInt(message);
-                                macchina.gestisciErogazioneBevanda(bevandaId, 0); // Livello zucchero default
-                                logger.info("Richiesta bevanda {} nella macchina {}", bevandaId, macchinaId);
+                                try {
+                                    // Prima prova come JSON
+                                    JsonObject jsonPayload = JsonParser.parseString(message).getAsJsonObject();
+                                    int bevandaId = jsonPayload.get("bevandaId").getAsInt();
+                                    int livelloZucchero = jsonPayload.has("zucchero") ? 
+                                        jsonPayload.get("zucchero").getAsInt() : 0;
+                                    macchina.gestisciErogazioneBevanda(bevandaId, livelloZucchero);
+                                } catch (Exception e) {
+                                    // Se fallisce, prova come valore diretto
+                                    try {
+                                        int bevandaId = Integer.parseInt(message);
+                                        macchina.gestisciErogazioneBevanda(bevandaId, 0);
+                                    } catch (NumberFormatException ex) {
+                                        logger.error("Formato messaggio non valido per richiesta bevanda: {}", message);
+                                        return;
+                                    }
+                                }
                                 break;
 
                             case "richiestaResto":
-                                macchina.gestoreCassa.gestisciRestituzioneCredito();
-                                logger.info("Resto richiesto nella macchina {}", macchinaId);
-                                break;
+                            	 macchina.gestoreCassa.gestisciRestituzioneCredito();
+                                 logger.info("Resto richiesto nella macchina {}", macchinaId);
+                                 // Pubblica lo stato aggiornato dopo la restituzione
+                                 String statoCassaTopic = "macchine/" + macchinaId + "/cassa/stato/risposta";
+                                 mqttClient.publish(statoCassaTopic, gson.toJson(macchina.gestoreCassa.ottieniStato()));
+                                 break;
 
                             default:
                                 logger.warn("Operazione non riconosciuta: {}", operazione);
@@ -789,7 +792,16 @@ public class Main {
             if (parts.length >= 4) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
-                    int zucchero = Integer.parseInt(parts[2]);
+                    // Verifica se il terzo segmento è effettivamente un numero prima di convertirlo
+                    int zucchero = 0;
+                    if (!parts[2].equals("bevande") && !parts[2].equals("stato")) {
+                        try {
+                            zucchero = Integer.parseInt(parts[2]);
+                        } catch (NumberFormatException e) {
+                            logger.warn("Formato zucchero non valido nel topic: {}", parts[2]);
+                        }
+                    }
+                    
                     String azione = parts[3];
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
 
@@ -799,11 +811,14 @@ public class Main {
                                 // Gestisci l'aggiornamento della bevanda
                                 macchina.pubblicaStatoMacchina();
                                 break;
+                            // Altri casi
                             default:
                                 logger.warn("Azione bevanda non riconosciuta: {}", azione);
                                 break;
                         }
                     }
+                } catch (NumberFormatException e) {
+                    logger.error("ID macchina non valido nel topic: {}", topic);
                 } catch (Exception e) {
                     logger.error("Errore nell'elaborazione della bevanda: {}", e.getMessage());
                 }
@@ -811,10 +826,10 @@ public class Main {
         });
         
      // Topic per lo stato della cassa
-        mqttClient.subscribe("macchine/+/cassa/stato", (topic, message) -> {
+        mqttClient.subscribe("macchine/+/cassa/stato/richiesta", (topic, message) -> {
             logger.debug("Ricevuta richiesta stato cassa: {} - {}", topic, message);
             String[] parts = topic.split("/");
-            if (parts.length >= 3) {
+            if (parts.length >= 4) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
@@ -839,10 +854,10 @@ public class Main {
         });
 
         // Topic per lo stato delle bevande
-        mqttClient.subscribe("macchine/+/bevande/stato", (topic, message) -> {
+        mqttClient.subscribe("macchine/+/bevande/stato/richiesta", (topic, message) -> {
             logger.debug("Ricevuta richiesta stato bevande: {} - {}", topic, message);
             String[] parts = topic.split("/");
-            if (parts.length >= 3) {
+            if (parts.length >= 4) {
                 try {
                     int macchinaId = Integer.parseInt(parts[1]);
                     MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
@@ -851,7 +866,6 @@ public class Main {
                         // Ottieni lo stato delle bevande
                         Map<String, Object> statoBevande = macchina.gestoreBevande.ottieniStato();
                         
-                        // Pubblica lo stato come risposta
                         String statoTopic = "macchine/" + macchinaId + "/bevande/stato/risposta";
                         mqttClient.publish(statoTopic, gson.toJson(statoBevande));
                         logger.debug("Stato bevande pubblicato per macchina {}", macchinaId);
@@ -881,10 +895,22 @@ public class Main {
                             case "ricarica":
                                 // Gestisci la ricarica delle cialde
                                 macchina.gestoreCialde.gestisciRicaricaCialde(new GestoreCialde.RichiestaCialde());
+                                // Pubblica lo stato aggiornato
+                                String statoTopic = "macchine/" + macchinaId + "/cialde/stato/risposta";
+                                mqttClient.publish(statoTopic, gson.toJson(macchina.gestoreCialde.ottieniStato()));
                                 break;
                             case "verifica":
                                 // Verifica lo stato delle cialde
                                 macchina.gestoreCialde.verificaStatoCialde();
+                                String verificaTopic = "macchine/" + macchinaId + "/cialde/stato/risposta";
+                                mqttClient.publish(verificaTopic, gson.toJson(macchina.gestoreCialde.ottieniStato()));
+                                break;
+                            case "stato":
+                                // Pubblica lo stato attuale delle cialde
+                                Map<String, Object> statoCialde = macchina.gestoreCialde.ottieniStato();
+                                String topicRisposta = "macchine/" + macchinaId + "/cialde/stato/risposta";
+                                mqttClient.publish(topicRisposta, gson.toJson(statoCialde));
+                                logger.debug("Stato cialde pubblicato per macchina {}", macchinaId);
                                 break;
                             default:
                                 logger.warn("Azione cialde non riconosciuta: {}", azione);
@@ -898,39 +924,74 @@ public class Main {
         });
 
         // Topic per la manutenzione
-       /* mqttClient.subscribe("macchine/+/manutenzione/#", (topic, message) -> {
-            logger.debug("Ricevuto messaggio manutenzione: {} - {}", topic, message);
-            String[] parts = topic.split("/");
-            if (parts.length >= 4) {
-                try {
-                    int macchinaId = Integer.parseInt(parts[1]);
-                    String azione = parts[3];
-                    MacchinaPrincipale macchina = macchineAttive.get(macchinaId);
-
-                    if (macchina != null) {
-                        switch (azione) {
-                            case "segnalazione":
-                                // Gestisci la segnalazione di un problema
-                                macchina.gestoreManutenzione.segnalaProblema("tipo_problema", "descrizione_problema", new HashMap<>());
-                                break;
-                            case "risoluzione":
-                                // Gestisci la risoluzione di un problema
-                                macchina.gestoreManutenzione.risolviProblema("id_problema", "descrizione_risoluzione", "tecnico");
-                                break;
-                            case "verifica":
-                                // Verifica lo stato della manutenzione
-                                macchina.gestoreManutenzione.verificaStato();
-                                break;
-                            default:
-                                logger.warn("Azione manutenzione non riconosciuta: {}", azione);
-                                break;
-                        }
-                    }
-                } catch (Exception e) {
-                    logger.error("Errore nell'elaborazione della manutenzione: {}", e.getMessage());
-                }
+        mqttClient.subscribe("macchine/+/manutenzione/segnalazione", (topic, message) -> {
+            logger.info("Ricevuta segnalazione manutenzione: {} - {}", topic, message);
+            try {
+                // Estrai l'ID della macchina dal topic
+                int macchinaId = Integer.parseInt(topic.split("/")[1]);
+                
+                // Processa il messaggio JSON di segnalazione
+                JsonObject segnalazione = JsonParser.parseString(message).getAsJsonObject();
+                String tipoIntervento = segnalazione.get("tipoIntervento").getAsString();
+                String descrizione = segnalazione.get("descrizione").getAsString();
+                String urgenza = segnalazione.has("urgenza") ? 
+                                 segnalazione.get("urgenza").getAsString() : "MEDIA";
+                
+                // Processa la segnalazione utilizzando il servizio di manutenzione
+                ManutenzioneService manutenzioneService = ServiceRegistry.get(ManutenzioneService.class);
+                manutenzioneService.processaMacchinaStato(topic, message);
+                
+                // Rispondi con conferma di ricezione
+                String rispostaTopic = "macchine/" + macchinaId + "/manutenzione/segnalazione/conferma";
+                mqttClient.publish(rispostaTopic, gson.toJson(Map.of(
+                    "ricevuta", true,
+                    "timestamp", System.currentTimeMillis()
+                )));
+                
+                logger.info("Segnalazione manutenzione processata per macchina {}: {}", macchinaId, tipoIntervento);
+            } catch (Exception e) {
+                logger.error("Errore nell'elaborazione della segnalazione manutenzione: {}", e.getMessage(), e);
             }
-        });*/
+        });
+
+        // Topic per richieste di stato manutenzione
+        mqttClient.subscribe("macchine/+/manutenzione/stato/richiesta", (topic, message) -> {
+            logger.info("Ricevuta richiesta stato manutenzione: {}", topic);
+            try {
+                int macchinaId = Integer.parseInt(topic.split("/")[1]);
+                
+                // Ottieni lo stato delle manutenzioni per questa macchina
+                ManutenzioneService manutenzioneService = ServiceRegistry.get(ManutenzioneService.class);
+                Map<String, Object> statoManutenzione = manutenzioneService.getStatoManutenzione(macchinaId);
+                
+                // Rispondi con lo stato attuale
+                String rispostaTopic = "macchine/" + macchinaId + "/manutenzione/stato/risposta";
+                mqttClient.publish(rispostaTopic, gson.toJson(statoManutenzione));
+                
+                logger.info("Stato manutenzione inviato per macchina {}", macchinaId);
+            } catch (Exception e) {
+                logger.error("Errore nell'elaborazione della richiesta stato manutenzione: {}", e.getMessage(), e);
+            }
+        });
+
+        // Topic per conferma completamento manutenzione
+        mqttClient.subscribe("macchine/+/manutenzione/completamento/conferma", (topic, message) -> {
+            logger.info("Ricevuta conferma completamento manutenzione: {} - {}", topic, message);
+            try {
+                int macchinaId = Integer.parseInt(topic.split("/")[1]);
+                JsonObject conferma = JsonParser.parseString(message).getAsJsonObject();
+                int manutenzioneId = conferma.get("manutenzioneId").getAsInt();
+                String note = conferma.has("note") ? conferma.get("note").getAsString() : "";
+                
+                // Completa la manutenzione nel sistema
+                ManutenzioneService manutenzioneService = ServiceRegistry.get(ManutenzioneService.class);
+                Manutenzione manutenzioneCompletata = manutenzioneService.completaManutenzione(manutenzioneId, note);
+                
+                logger.info("Manutenzione {} completata per macchina {}", manutenzioneId, macchinaId);
+            } catch (Exception e) {
+                logger.error("Errore nell'elaborazione della conferma completamento: {}", e.getMessage(), e);
+            }
+        });
 
     }
 

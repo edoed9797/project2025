@@ -2,14 +2,19 @@ package com.vending.iot.machines;
 
 import com.google.gson.Gson;
 import com.vending.ServiceRegistry;
+import com.vending.core.models.Macchina;
 import com.vending.core.models.Ricavo;
+import com.vending.core.models.Transazione;
+import com.vending.core.repositories.MacchinaRepository;
 import com.vending.core.repositories.RicavoRepository;
+import com.vending.core.repositories.TransazioneRepository;
 import com.vending.iot.mqtt.MQTTClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import java.util.concurrent.atomic.AtomicReference;
 import java.time.LocalDateTime;
+import java.util.HashMap;
 import java.util.Map;
 
 /**
@@ -26,12 +31,13 @@ public class GestoreCassa {
 
     private static final Logger logger = LoggerFactory.getLogger(GestoreCassa.class);
     private final int idMacchina;
-    private final AtomicReference<Double> creditoAttuale;
-    private final AtomicReference<Double> cassaAttuale;
+    private double  creditoAttuale;
+    private double  cassaAttuale;
     private final double cassaMassima;
     private final MQTTClient mqttClient;
     private final Gson gson;
-    private static final double SOGLIA_AVVISO_CASSA_PIENA = 0.9; // 90%
+    private final MacchinaRepository macchinaRepository;
+    private static final double SOGLIA_AVVISO_CASSA_PIENA = 0.8; // 80%
 
     /**
      * Costruttore del gestore cassa.
@@ -44,16 +50,22 @@ public class GestoreCassa {
         if (cassaMassima <= 0) {
             throw new IllegalArgumentException("La capacità massima della cassa deve essere positiva");
         }
-
-        this.idMacchina = idMacchina;
-        this.cassaMassima = cassaMassima;
-        this.creditoAttuale = new AtomicReference<>(0.0);
-        this.cassaAttuale = new AtomicReference<>(0.0);
         this.gson = new Gson();
         this.mqttClient = new MQTTClient("cassa_" + idMacchina);
-
-        logger.info("Inizializzazione GestoreCassa per macchina {}", idMacchina);
+        this.idMacchina = idMacchina;
+        this.cassaMassima = cassaMassima;
+        this.macchinaRepository = ServiceRegistry.get(MacchinaRepository.class);
         
+        Macchina macchina = macchinaRepository.findById(idMacchina);
+        if (macchina != null) {
+            this.cassaAttuale = macchina.getCassaAttuale();
+            this.creditoAttuale = macchina.getCreditoAttuale();
+        } else {
+            this.cassaAttuale = 0.0;
+            this.creditoAttuale = 0.0;
+            logger.warn("Macchina {} non trovata nel database, inizializzata cassa a 0", idMacchina);
+        }
+        logger.info("Cassa per macchina {} configurata con successo", idMacchina);
     }
 
     /**
@@ -75,7 +87,7 @@ public class GestoreCassa {
             throw new IllegalArgumentException("Il saldo supera la capacità massima della cassa");
         }
 
-        cassaAttuale.set(nuovoSaldo);
+        cassaAttuale = nuovoSaldo;
         logger.info("Saldo cassa impostato a {} per la macchina {}", nuovoSaldo, idMacchina);
         pubblicaStatoCassa();
 
@@ -93,71 +105,34 @@ public class GestoreCassa {
      * e percentualeOccupazione
      */
     public Map<String, Object> ottieniStato() {
-        double saldoAttuale = cassaAttuale.get();
-        return Map.of(
-                "creditoAttuale", creditoAttuale.get(),
-                "cassaAttuale", saldoAttuale,
-                "cassaMassima", cassaMassima,
-                "percentualeOccupazione", (saldoAttuale / cassaMassima) * 100
-        );
+        double saldoAttuale = cassaAttuale;
+        Map<String, Object> stato = new HashMap<>();
+        stato.put("creditoAttuale", creditoAttuale);
+        stato.put("cassaAttuale", saldoAttuale);
+        stato.put("cassaMassima", cassaMassima);
+        stato.put("percentualeOccupazione", (saldoAttuale / cassaMassima) * 100);
+        stato.put("timestamp", System.currentTimeMillis());
+        return stato;
     }
 
     /**
-     * Inizializza le sottoscrizioni MQTT per gestire le operazioni della cassa.
-     * Gestisce le operazioni di inserimento monete, svuotamento cassa e
-     * restituzione credito.
+     * Gestisce l'inserimento di una moneta nella cassa.
      *
-     * @throws MqttException se si verificano errori nella sottoscrizione ai
-     * topic MQTT
-     */
-    /*private void inizializzaSottoscrizioni() throws MqttException {
-        String baseTopic = "macchine/+/cassa/";
-        mqttClient.subscribe(baseTopic + "#", (topic, messaggio) -> {
-            logger.debug("Ricevuto messaggio sul topic {}: {}", topic, messaggio);
-            String azione = topic.substring(baseTopic.length());
-            double importo = gson.fromJson(messaggio, double.class);
-            try {
-                switch (azione) {
-                    case "inserimento":
-                        gestisciInserimentoMoneta(importo);
-                        break;
-                    case "svuotamento":
-                        gestisciSvuotamentoCassa();
-                        break;
-                    case "cancella":
-                        gestisciRestituzioneCredito();
-                        break;
-                    default:
-                        logger.warn("Azione non riconosciuta: {}", azione);
-                }
-            } catch (Exception e) {
-                logger.error("Errore durante l'elaborazione del messaggio", e);
-                pubblicaErrore("Errore durante l'elaborazione dell'operazione: " + e.getMessage());
-            }
-        });
-        logger.info("Sottoscrizioni inizializzate per la macchina {}", idMacchina);
-    }*/
-
-    /**
-     * Gestisce l'inserimento di una moneta nella cassa. Verifica se l'importo
-     * può essere accettato e aggiorna il credito attuale.
-     *
-     * @param operazione l'operazione di inserimento moneta contenente l'importo
+     * @param importo l'importo da inserire
+     * @return true se l'inserimento è riuscito, false altrimenti
      */
     public boolean gestisciInserimentoMoneta(double importo) {
-        logger.debug("Gestione inserimento moneta: {}", importo);
         if (importo <= 0) {
             pubblicaErrore("L'importo deve essere positivo");
+            logger.warn("Tentativo di inserire importo non valido: {}", importo);
             return false;
         }
 
         if (puoAccettareImporto(importo)) {
-            creditoAttuale.updateAndGet(credito -> credito + importo);
-            cassaAttuale.updateAndGet(credito -> credito + importo);
-            logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale.get(), idMacchina);
-            double att = creditoAttuale.get();
+        	 // Aggiorna il credito con arrotondamento a 2 decimali
+            this.creditoAttuale = Math.round((this.creditoAttuale + importo) * 100.0) / 100.0;
+            logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale, idMacchina);
             pubblicaStatoCredito();
-            impostaSaldoCassa(att);
             return true;
         } else {
             logger.warn("Impossibile accettare l'importo {} - cassa piena", importo);
@@ -165,14 +140,84 @@ public class GestoreCassa {
             return false;
         }
     }
+    
 
     /**
-     * Gestisce l'operazione di svuotamento della cassa. Azzera il saldo attuale
-     * e pubblica la conferma dell'operazione.
+     * Processa il pagamento per l'acquisto di una bevanda.
+     *
+     * @param prezzo Prezzo della bevanda da acquistare
+     * @param bevandaId ID della bevanda acquistata
+     * @return true se il pagamento è stato processato con successo, false altrimenti
      */
-    public void gestisciSvuotamentoCassa() {
-        double importoSvuotato = cassaAttuale.getAndSet(0.0);
+    public boolean processaPagamento(double prezzo, int bevandaId) {
+        if (prezzo <= 0) {
+            logger.error("Tentativo di processare un pagamento con prezzo non valido: {}", prezzo);
+            return false;
+        }
+
+        if (creditoAttuale >= prezzo) {
+            // Aggiorna credito e cassa 
+            this.creditoAttuale = Math.round((this.creditoAttuale - prezzo) * 100.0) / 100.0;
+            this.cassaAttuale = Math.round((this.cassaAttuale + prezzo) * 100.0) / 100.0;
+            
+            try {
+                // Registra la transazione nel database
+                TransazioneRepository transazioneRepo = ServiceRegistry.get(TransazioneRepository.class);
+                Transazione transazione = new Transazione();
+                transazione.setMacchinaId(idMacchina);
+                transazione.setBevandaId(bevandaId);
+                transazione.setImporto(prezzo);
+                transazione.setDataOra(LocalDateTime.now());
+                
+                // Salva la transazione nel database
+                transazione = transazioneRepo.save(transazione);
+                
+                // Pubblica aggiornamenti tramite MQTT
+                pubblicaStatoCredito();
+                pubblicaStatoCassa();
+                
+                // Pubblica conferma della transazione
+                String topicTransazione = "macchine/" + idMacchina + "/transazioni/completata";
+                Map<String, Object> messaggioTransazione = new HashMap<>();
+                messaggioTransazione.put("transazioneId", transazione.getId());
+                messaggioTransazione.put("bevandaId", bevandaId);
+                messaggioTransazione.put("importo", prezzo);
+                messaggioTransazione.put("timestamp", System.currentTimeMillis());
+                
+                mqttClient.publish(topicTransazione, gson.toJson(messaggioTransazione));
+                
+                // Verifica se la cassa è vicina al riempimento
+                if ((cassaAttuale / cassaMassima) > SOGLIA_AVVISO_CASSA_PIENA) {
+                    pubblicaAvvisoCassaPiena();
+                }
+
+                logger.info("Pagamento processato con successo: {} per la macchina {}, transazione {}", 
+                          prezzo, idMacchina, transazione.getId());
+                
+                aggiornaDatabase();
+                return true;
+            } catch (Exception e) {
+                logger.error("Errore durante la registrazione della transazione: {}", e.getMessage(), e);
+                // Ripristina lo stato precedente in caso di errore
+                
+                this.creditoAttuale = Math.round((this.creditoAttuale + prezzo) * 100.0) / 100.0;
+                this.cassaAttuale = Math.round((this.cassaAttuale - prezzo) * 100.0) / 100.0;
+                return false;
+            }
+        }
+
+        logger.warn("Credito insufficiente per il pagamento: {} < {}", creditoAttuale, prezzo);
+        return false;
+    }
+    
+    /**
+     * Gestisce l'operazione di svuotamento della cassa.
+     */
+    public double gestisciSvuotamentoCassa() {
+        double importoSvuotato = cassaAttuale;
+        cassaAttuale = 0.0;
         logger.info("Svuotamento cassa effettuato: {} per la macchina {}", importoSvuotato, idMacchina);
+        
         // Registra il ricavo
         try {
             RicavoRepository ricavoRepo = ServiceRegistry.get(RicavoRepository.class);
@@ -180,27 +225,35 @@ public class GestoreCassa {
             ricavo.setDataOra(LocalDateTime.now());
             ricavoRepo.save(ricavo);
 
-            // Richiedi manutenzione per conferma svuotamento
-            GestoreManutenzione gestoreManutenzione = new GestoreManutenzione(idMacchina);
-            gestoreManutenzione.richiestaSvuotamentoCassa(idMacchina, importoSvuotato);
-
+            // Pubblica conferma di svuotamento
+            pubblicaConfermaSvuotamento(importoSvuotato);
+            pubblicaStatoCassa();
+            aggiornaDatabase();
+            logger.info("Ricavo registrato per svuotamento cassa: {} per macchina {}", importoSvuotato, idMacchina);
+            
+            return importoSvuotato;
         } catch (Exception e) {
             logger.error("Errore durante la registrazione del ricavo per svuotamento cassa: {}", e.getMessage());
+            return 0.0;
         }
-        pubblicaConfermaSvuotamento(importoSvuotato);
-        pubblicaStatoCassa();
     }
 
     /**
-     * Gestisce la restituzione del credito all'utente. Azzera il credito
-     * attuale e pubblica la conferma dell'operazione.
-     * @return 
+     * Gestisce la restituzione del credito all'utente.
+     * 
+     * @return importo restituito
      */
     public double gestisciRestituzioneCredito() {
-        double importoRestituito = creditoAttuale.getAndSet(0.0);
+        double importoRestituito = creditoAttuale;
+        creditoAttuale = 0.0;
         logger.info("Restituzione credito: {} per la macchina {}", importoRestituito, idMacchina);
-        pubblicaRestituzione(importoRestituito);
-        pubblicaStatoCredito();
+        
+        // Aggiorna cassa solo se ci sono crediti da restituire
+        if (importoRestituito > 0) {
+            pubblicaRestituzione(importoRestituito);
+            pubblicaStatoCredito();
+        }
+        
         return importoRestituito;
     }
 
@@ -212,27 +265,40 @@ public class GestoreCassa {
      * @return true se l'importo può essere accettato, false altrimenti
      */
     public boolean puoAccettareImporto(double importo) {
-        return (cassaAttuale.get() + creditoAttuale.get() + importo) <= cassaMassima;
+        return (cassaAttuale + creditoAttuale + importo) <= cassaMassima;
     }
-
+    
     /**
-     * Pubblica lo stato attuale della cassa sul topic MQTT appropriato. Include
-     * informazioni su saldo attuale, capacità massima e percentuale di
-     * occupazione.
+     * Aggiorna lo stato della cassa nel database.
+     */
+    private void aggiornaDatabase() {
+        try {
+            Macchina macchina = macchinaRepository.findById(idMacchina);
+            if (macchina != null) {
+                macchina.setCreditoAttuale(creditoAttuale);
+                macchina.setCassaAttuale(cassaAttuale);
+                macchinaRepository.update(macchina);
+                logger.debug("Database aggiornato per macchina {}: Credito={}, Cassa={}", 
+                		idMacchina, creditoAttuale, cassaAttuale);
+            } else {
+                logger.error("Impossibile aggiornare database: macchina {} non trovata", idMacchina);
+            }
+        } catch (Exception e) {
+            logger.error("Errore nell'aggiornamento del database per la macchina {}: {}", 
+            		idMacchina, e.getMessage(), e);
+        }
+    }
+    
+    /**
+     * Pubblica lo stato attuale della cassa sul topic MQTT appropriato.
      */
     private void pubblicaStatoCassa() {
         try {
-            String topic = "macchine/" + idMacchina + "/cassa/stato";
-            Map<String, Object> stato = Map.of(
-                    "cassaAttuale", cassaAttuale.get(),
-                    "creditoAttuale", creditoAttuale.get(),
-                    "cassaMassima", cassaMassima,
-                    "percentualeOccupazione", (cassaAttuale.get() / cassaMassima) * 100,
-                    "timestamp", System.currentTimeMillis()
-            );
-            mqttClient.publish(topic, gson.toJson(stato));
-        } catch (MqttException e) {
-            logger.error("Errore pubblicazione stato cassa", e);
+            String topic = "macchine/" + idMacchina + "/cassa/stato/risposta";
+            mqttClient.publish(topic, gson.toJson(ottieniStato()));
+            logger.debug("Stato cassa pubblicato per macchina {}", idMacchina);
+        } catch (Exception e) {
+            logger.error("Errore pubblicazione stato cassa: {}", e.getMessage(), e);
         }
     }
 
@@ -241,37 +307,41 @@ public class GestoreCassa {
      */
     private void pubblicaStatoCredito() {
         try {
-            String topic = "macchine/" + idMacchina + "/cassa/credito";
-            Map<String, Object> stato = Map.of(
-                    "creditoAttuale", creditoAttuale.get(),
-                    "timestamp", System.currentTimeMillis()
-            );
+            String topic = "macchine/" + idMacchina + "/cassa/credito/risposta";
+            Map<String, Object> stato = new HashMap<>();
+            stato.put("creditoAttuale", creditoAttuale);
+            stato.put("timestamp", System.currentTimeMillis());
+            
             mqttClient.publish(topic, gson.toJson(stato));
-        } catch (MqttException e) {
-            logger.error("Errore pubblicazione stato credito", e);
+            logger.debug("Stato credito pubblicato: {} per macchina {}", creditoAttuale, idMacchina);
+        } catch (Exception e) {
+            logger.error("Errore pubblicazione stato credito: {}", e.getMessage(), e);
         }
     }
 
     /**
      * Pubblica un avviso quando la cassa supera la soglia di riempimento.
-     * L'avviso viene inviato quando la cassa supera il 90% della sua capacità.
      */
     private void pubblicaAvvisoCassaPiena() {
         try {
-            String topicAvviso = "macchine/" + idMacchina + "/cassa/avviso";
-            Map<String, Object> avviso = Map.of(
-                    "tipo", "CASSA_QUASI_PIENA",
-                    "messaggio", "La cassa ha superato il 90% della capacità",
-                    "percentualeOccupazione", (cassaAttuale.get() / cassaMassima) * 100,
-                    "timestamp", System.currentTimeMillis()
-            );
+            String topicAvviso = "macchine/" + idMacchina + "/cassa/avviso/cassaPiena";
+            Map<String, Object> avviso = new HashMap<>();
+            avviso.put("guasto", false);
+            avviso.put("cassa", new HashMap<String, Object>() {{
+                put("importo", cassaAttuale);
+                put("massimo", cassaMassima);
+                put("percentuale", (cassaAttuale / cassaMassima) * 100);
+                put("piena", (cassaAttuale / cassaMassima) > SOGLIA_AVVISO_CASSA_PIENA);
+            }});
+            avviso.put("timestamp", System.currentTimeMillis());
+            
             mqttClient.publish(topicAvviso, gson.toJson(avviso));
             logger.warn("Avviso cassa quasi piena pubblicato per la macchina {}", idMacchina);
-        } catch (MqttException e) {
-            logger.error("Errore pubblicazione avviso cassa piena", e);
+        } catch (Exception e) {
+            logger.error("Errore pubblicazione avviso cassa piena: {}", e.getMessage(), e);
         }
     }
-
+    
     /**
      * Pubblica la conferma di svuotamento della cassa con l'importo svuotato.
      *
@@ -280,13 +350,14 @@ public class GestoreCassa {
     private void pubblicaConfermaSvuotamento(double importo) {
         try {
             String topic = "macchine/" + idMacchina + "/cassa/svuotamento/conferma";
-            Map<String, Object> conferma = Map.of(
-                    "importo", importo,
-                    "timestamp", System.currentTimeMillis()
-            );
+            Map<String, Object> conferma = new HashMap<>();
+            conferma.put("importo", importo);
+            conferma.put("timestamp", System.currentTimeMillis());
+            
             mqttClient.publish(topic, gson.toJson(conferma));
-        } catch (MqttException e) {
-            logger.error("Errore pubblicazione conferma svuotamento", e);
+            logger.info("Conferma svuotamento cassa pubblicata: {} per macchina {}", importo, idMacchina);
+        } catch (Exception e) {
+            logger.error("Errore pubblicazione conferma svuotamento: {}", e.getMessage(), e);
         }
     }
 
@@ -298,13 +369,14 @@ public class GestoreCassa {
     private void pubblicaRestituzione(double importo) {
         try {
             String topic = "macchine/" + idMacchina + "/cassa/resto/conferma";
-            Map<String, Object> resto = Map.of(
-                    "importo", importo,
-                    "timestamp", System.currentTimeMillis()
-            );
+            Map<String, Object> resto = new HashMap<>();
+            resto.put("importo", importo);
+            resto.put("timestamp", System.currentTimeMillis());
+            
             mqttClient.publish(topic, gson.toJson(resto));
-        } catch (MqttException e) {
-            logger.error("Errore pubblicazione restituzione", e);
+            logger.info("Conferma restituzione credito pubblicata: {} per macchina {}", importo, idMacchina);
+        } catch (Exception e) {
+            logger.error("Errore pubblicazione restituzione: {}", e.getMessage(), e);
         }
     }
 
@@ -315,69 +387,92 @@ public class GestoreCassa {
      */
     private void pubblicaErrore(String messaggio) {
         try {
-            String topic = "macchine/" + idMacchina + "/cassa/errore";
-            Map<String, Object> errore = Map.of(
-                    "messaggio", messaggio,
-                    "timestamp", System.currentTimeMillis()
-            );
+            String topic = "macchine/" + idMacchina + "/cassa/errore/risposta";
+            Map<String, Object> errore = new HashMap<>();
+            errore.put("messaggio", messaggio);
+            errore.put("timestamp", System.currentTimeMillis());
+            
             mqttClient.publish(topic, gson.toJson(errore));
-            logger.error("Errore cassa: {}", messaggio);
-        } catch (MqttException e) {
-            logger.error("Errore pubblicazione errore", e);
+            logger.error("Errore cassa pubblicato: {}", messaggio);
+        } catch (Exception e) {
+            logger.error("Errore pubblicazione errore: {}", e.getMessage(), e);
         }
     }
-
+    
     /**
-     * Processa un pagamento, verificando la disponibilità del credito e
-     * aggiornando i saldi. Se il pagamento va a buon fine, aggiorna sia il
-     * credito che la cassa e pubblica gli aggiornamenti.
-     *
-     * @param prezzo l'importo da addebitare
-     * @return true se il pagamento è stato processato con successo, false
-     * altrimenti
-     */
-    public boolean processaPagamento(double prezzo) {
-        if (prezzo <= 0) {
-            logger.error("Tentativo di processare un pagamento con prezzo non valido: {}", prezzo);
-            return false;
-        }
+    * Ottiene l'importo attuale in cassa.
+    * 
+    * @return importo attuale in cassa
+    */
+   public double ottieniStatoCassa() {
+       return cassaAttuale;
+   }
 
-        if (creditoAttuale.get() >= prezzo) {
-            creditoAttuale.updateAndGet(credito -> credito - prezzo);
-            cassaAttuale.updateAndGet(cassa -> cassa + prezzo);
+   /**
+    * Ottiene il credito attualmente inserito.
+    * 
+    * @return credito attuale
+    */
+   public double ottieniCreditoAttuale() {
+       return creditoAttuale;
+   }
 
-            try {
-                pubblicaStatoCredito();
-                pubblicaStatoCassa();
+   /**
+    * Verifica se c'è credito sufficiente per una bevanda.
+    * 
+    * @param importo importo da verificare
+    * @return true se il credito è sufficiente
+    */
+   public boolean verificaCredisoSufficiente(double importo) {
+	   double ca = creditoAttuale;
+       return ca >= importo;
+   }
 
-                if ((cassaAttuale.get() / cassaMassima) > SOGLIA_AVVISO_CASSA_PIENA) {
-                    pubblicaAvvisoCassaPiena();
-                }
+   /**
+    * Sottrae l'importo dal credito attuale.
+    * 
+    * @param importo importo da sottrarre
+    * @return true se l'operazione è avvenuta con successo
+    */
+   public boolean sottraiCredito(double importo) {
+	   double ca = creditoAttuale;
+       if (importo <= 0 || importo > ca) {
+           return false;
+       }
+       
+       this.creditoAttuale = Math.round((this.creditoAttuale - importo) * 100.0) / 100.0;
+       try {
+           // Pubblica l'aggiornamento del credito
+           String topic = "macchine/" + idMacchina + "/cassa/stato/risposta";
+           mqttClient.publish(topic, gson.toJson(ottieniStato()));
+       } catch (Exception e) {
+           logger.error("Errore nella pubblicazione dell'aggiornamento credito: {}", e.getMessage());
+       }
+       return true;
+   }
 
-                logger.info("Pagamento processato con successo: {} per la macchina {}", prezzo, idMacchina);
-                return true;
-            } catch (Exception e) {
-                logger.error("Errore durante la pubblicazione degli aggiornamenti del pagamento", e);
-                return true; // Il pagamento è comunque avvenuto con successo
-            }
-        }
+   /**
+    * Aggiunge l'importo in cassa.
+    * 
+    * @param importo importo da aggiungere
+    * @return true se l'operazione è avvenuta con successo
+    */
+   public boolean aggiungiInCassa(double importo) {
+	   double ca = cassaAttuale;
+       if (importo <= 0 || ( ca + importo) > cassaMassima) {
+           return false;
+       }
+       this.creditoAttuale = Math.round((this.creditoAttuale - importo) * 100.0) / 100.0;
+       try {
+           // Pubblica l'aggiornamento dello stato cassa
+           String topic = "macchine/" + idMacchina + "/cassa/stato/risposta";
+           mqttClient.publish(topic, gson.toJson(ottieniStato()));
+       } catch (Exception e) {
+           logger.error("Errore nella pubblicazione dell'aggiornamento cassa: {}", e.getMessage());
+       }
+       return true;
+   }
 
-        logger.warn("Credito insufficiente per il pagamento: {} < {}", creditoAttuale.get(), prezzo);
-        return false;
-    }
-
-    // /**
-    //  * Classe interna che rappresenta un'operazione di inserimento moneta.
-    //  */
-    // static class OperazioneMoneta {
-    //         public double importo;
-    // 		public double getImporto() {
-    // 			return importo;
-    // 		}
-    // 		public void setImporto(double importo) {
-    // 			this.importo = importo;
-    // 		}
-    //     }
     /**
      * Spegne il gestore cassa, disconnettendo il client MQTT. Da chiamare
      * quando la macchina viene spenta o riavviata.

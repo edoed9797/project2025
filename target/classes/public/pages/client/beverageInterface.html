@@ -74,6 +74,10 @@
             align-items: center;
             gap: 0.5rem;
         }
+        
+        .p-8 {
+            padding: 14rem;
+        }
 
         .status-active {
             background-color: #10B981;
@@ -185,7 +189,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            z-index: 40;
+            z-index: 1000;
         }
 
         .hidden {
@@ -241,8 +245,8 @@
             <div class="md:col-span-2">
                 <div id="categoriesTabs" class="flex gap-4 mb-6">
                     <button class="tab-button px-4 py-2 rounded-lg bg-blue-600 text-white" data-category="all">Tutte</button>
-                    <button class="tab-button px-4 py-2 rounded-lg bg-gray-200" data-category="coffee">Caffè</button>
-                    <button class="tab-button px-4 py-2 rounded-lg bg-gray-200" data-category="hot">Bevande Calde</button>
+                    <button class="tab-button px-4 py-2 rounded-lg bg-gray-200" data-category="CAFFÈ">Caffè</button>
+                    <button class="tab-button px-4 py-2 rounded-lg bg-gray-200" data-category="TÈ E INFUSI">Bevande Calde</button>
                 </div>
 
                 <div id="beveragesList" class="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -284,9 +288,7 @@
 
                 <!-- Pulsanti Azione -->
                 <div class="flex gap-4">
-                    <button id="dispenseButton" 
-                            class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                            disabled>
+                    <button id="dispenseButton" class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Eroga
                     </button>
                     <button id="returnCreditButton" 
@@ -298,13 +300,15 @@
             </div>
         </div>
     </div>
-
-    <!-- Overlay Erogazione -->
-    <div id="dispensingOverlay" class="overlay hidden">
-        <div class="bg-white p-8 rounded-lg text-center">
-            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4 mx-auto"></div>
-            <h3 class="text-xl font-bold mb-4">Erogazione in Corso</h3>
-            <p id="dispensingStatus" class="text-gray-600">Preparazione bevanda...</p>
+    
+    <!-- Modale per l'erogazione -->
+    <div id="erogationModal" class="overlay hidden">
+        <div class="bg-white p-8 rounded-lg text-center w-full max-w-2xl">
+            <!-- Contenuto del modale -->
+            <div id="modalContent">
+                <!-- Qui verrà caricata la pagina HTML generata -->
+            </div>
+            <h4>Attendi..</h4>
         </div>
     </div>
 
@@ -358,8 +362,8 @@
             beveragesList: document.getElementById('beveragesList'),
             dispenseButton: document.getElementById('dispenseButton'),
             returnCreditButton: document.getElementById('returnCreditButton'),
-            dispensingOverlay: document.getElementById('dispensingOverlay'),
-            dispensingStatus: document.getElementById('dispensingStatus'),
+            erogationModal: document.getElementById('erogationModal'),
+            modalContent: document.getElementById('modalContent'),
             alertBox: document.getElementById('alertBox'),
             alertMessage: document.getElementById('alertMessage'),
             notificationBox: document.getElementById('notificationBox'),
@@ -369,24 +373,30 @@
             userName: document.getElementById('userName')
         };
 
-        // Topic MQTT - verranno aggiornati con l'ID corretto
-        const MQTT_TOPICS = {
-            // Topic di sottoscrizione per lo stato della macchina
-            MACHINE_STATUS: 'macchine/${machineId}/stato',
+        // Topic MQTT - variabili da inizializzare con l'ID macchina
+        let MQTT_TOPICS = {
+            MACHINE_STATUS_REQUEST: 'macchine/${machineId}/stato/richiesta',
+            MACHINE_STATUS_RESPONSE: 'macchine/${machineId}/stato/risposta',
+            MACHINE_STATUS_UPDATE: 'macchine/${machineId}/stato/aggiornamento',
             
-            // Topic per la gestione della cassa
             CASH_INSERT: 'macchine/${machineId}/cassa/inserimentoCredito', 
             CASH_RETURN: 'macchine/${machineId}/cassa/richiestaResto',
-            CASH_STATUS: 'macchine/${machineId}/cassa/stato/risposta',
+            CASH_STATUS_REQUEST: 'macchine/${machineId}/cassa/stato/richiesta',
+            CASH_STATUS_RESPONSE: 'macchine/${machineId}/cassa/stato/risposta',
             
-            // Topic per le bevande
             BEVERAGE_REQUEST: 'macchine/${machineId}/cassa/richiestaBevanda',
-            BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato/risposta',
+            BEVERAGE_STATUS_REQUEST: 'macchine/${machineId}/bevande/stato/richiesta',
+            BEVERAGE_STATUS_RESPONSE: 'macchine/${machineId}/bevande/stato/risposta',
+            BEVERAGE_LIST_RESPONSE: 'macchine/${machineId}/bevande/lista/risposta',
             
-            // Altri topic
-            MAINTENANCE: 'macchine/${machineId}/manutenzione/stato',
             ALERTS: 'macchine/${machineId}/eventi'
         };
+        
+        let lastStateRequestTime = 0;
+        const STATE_REQUEST_DEBOUNCE = 3000;
+        
+        let lastCashAlertTime = 0;
+        const CASH_ALERT_COOLDOWN = 60000;
         
         // Funzioni di utility per l'autenticazione
         const AuthUtils = {
@@ -464,23 +474,28 @@
                 AuthUtils.updateUIForAuthState();
                 
                 // Aggiorna l'ID nei topic MQTT
-                Object.keys(MQTT_TOPICS).forEach(key => {
+                for (const key in MQTT_TOPICS) {
                     MQTT_TOPICS[key] = MQTT_TOPICS[key].replace('${machineId}', currentMachineId);
-                });
+                }
 
                 // Recupera i dati della macchina
+                const headers = AuthUtils.getAuthHeaders();
+                console.log("Headers di autenticazione:", headers);
+                
                 const response = await axios.get(
                     `${API_BASE_URL}/macchine/${currentMachineId}`,
-                    { headers: AuthUtils.getAuthHeaders() }
+                    { headers }
                 );
+                
+                console.log("Dati macchina ricevuti:", response.data);
                 const machineData = response.data;
 
                 // Inizializza lo stato della macchina
                 machineState = {
                     id: machineData.id,
-                    cassaAttuale: machineData.cassaAttuale,
-                    cassaMassima: machineData.cassaMassima,
-                    stato: machineData.statoId,
+                    cassaAttuale: machineData.cassaAttuale || 0,
+                    cassaMassima: machineData.cassaMassima || 1000,
+                    stato: machineData.statoId || 1,
                     creditoAttuale: machineData.creditoAttuale || 0,
                     bevande: machineData.bevande || [],
                     cialde: machineData.cialde || []
@@ -509,10 +524,12 @@
                 
                 // Costruzione corretta dell'URL WebSocket
                 const wsUrl = MQTT_CONFIG.useSSL ? 
-                    `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/` : 
-                    `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/`;
+                    `wss://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt` : 
+                    `ws://${MQTT_CONFIG.host}:${MQTT_CONFIG.port}/mqtt`;
             
                 try {
+                    console.log(`Tentativo di connessione MQTT a ${wsUrl} con client ID ${clientId}`);
+                    
                     // Crea il client MQTT
                     client = new Paho.MQTT.Client(wsUrl, clientId);
             
@@ -526,28 +543,22 @@
                         password: MQTT_CONFIG.password,
                         keepAliveInterval: MQTT_CONFIG.keepAliveInterval,
                         cleanSession: MQTT_CONFIG.cleanSession,
+                        useSSL: MQTT_CONFIG.useSSL,
                         onSuccess: () => {
+                            console.log("Connessione MQTT stabilita con successo");
                             onConnect();
                             resolve();
                         },
                         onFailure: (error) => {
+                            console.error("Errore nella connessione MQTT:", error);
                             onConnectFailure(error);
                             reject(error);
-                        },
-                        timeout: 3
+                        }
                     };
-            
-                    // Debug logging
-                    console.log('Tentativo di connessione MQTT:', {
-                        url: wsUrl,
-                        clientId: clientId,
-                        useSSL: MQTT_CONFIG.useSSL,
-                        port: MQTT_CONFIG.port
-                    });
             
                     // Connetti il client
                     client.connect(connectOptions);
-            
+                    
                 } catch (error) {
                     console.error('Errore nella creazione del client MQTT:', error);
                     reject(error);
@@ -561,28 +572,58 @@
         }
 
         function onConnect() {
+            console.log("onConnect - Iscrizione ai topic MQTT");
             showNotification('Connesso al sistema');
-            Object.values(MQTT_TOPICS).forEach(topic => {
-                client.subscribe(topic);
-            });
             
-            // Richiedi lo stato iniziale della macchina all'avvio
-            requestInitialState();
+            try {
+                // Iscrizione ai topic
+                client.subscribe(MQTT_TOPICS.MACHINE_STATUS_RESPONSE, { qos: 1 });
+                client.subscribe(MQTT_TOPICS.MACHINE_STATUS_UPDATE, { qos: 1 });
+                client.subscribe(MQTT_TOPICS.CASH_STATUS_RESPONSE, { qos: 1 });
+                client.subscribe(MQTT_TOPICS.BEVERAGE_STATUS_RESPONSE, { qos: 1 });
+                client.subscribe(MQTT_TOPICS.BEVERAGE_LIST_RESPONSE, { qos: 1 }); 
+                client.subscribe(MQTT_TOPICS.ALERTS, { qos: 1 });
+                
+                console.log("Iscrizione ai topic completata");
+                
+                // Richiedi lo stato iniziale della macchina all'avvio
+                requestInitialState();
+            } catch (error) {
+                console.error("Errore durante l'iscrizione ai topic:", error);
+                showAlert("Errore nella configurazione della comunicazione");
+            }
         }
         
         function requestInitialState() {
-            // Esegue una singola richiesta iniziale dello stato della macchina
             console.log("Richiesta stato iniziale della macchina");
-            publishMessage(MQTT_TOPICS.MACHINE_STATUS, { request: 'getStatus', timestamp: Date.now() });
             
-            // Esegue una singola richiesta iniziale dello stato della cassa
-            console.log("Richiesta stato iniziale della cassa");
-            publishMessage(MQTT_TOPICS.CASH_STATUS, { request: 'getStatus', timestamp: Date.now() });
+            try {
+                // Richiedi lo stato della macchina
+                publishMessage(MQTT_TOPICS.MACHINE_STATUS_REQUEST, JSON.stringify({ 
+                    timestamp: Date.now(),
+                    request: 'getStatus'
+                }));
+                
+                // Richiedi lo stato della cassa
+                publishMessage(MQTT_TOPICS.CASH_STATUS_REQUEST, JSON.stringify({ 
+                    timestamp: Date.now() 
+                }));
+                
+                // Richiedi lo stato delle bevande
+                publishMessage(MQTT_TOPICS.BEVERAGE_STATUS_REQUEST, JSON.stringify({ 
+                    timestamp: Date.now() 
+                }));
+                
+                console.log("Richieste di stato iniziale inviate");
+            } catch (error) {
+                console.error("Errore nell'invio delle richieste di stato:", error);
+                showAlert("Errore nella comunicazione con la macchina");
+            }
         }
 
         function onConnectFailure(error) {
             console.error('Errore di connessione MQTT:', error);
-            showAlert(`Errore di connessione: ${error.errorMessage}`);
+            showAlert(`Errore di connessione: ${error.errorMessage || "Problema di comunicazione"}`);
             
             // Implementa backoff esponenziale per i tentativi
             let retryCount = 0;
@@ -615,6 +656,8 @@
         }
 
         function onMessageArrived(message) {
+            console.log(`Messaggio ricevuto sul topic ${message.destinationName}: ${message.payloadString}`);
+            
             try {
                 const topic = message.destinationName;
                 let payload;
@@ -622,34 +665,34 @@
                 try {
                     payload = JSON.parse(message.payloadString);
                 } catch (parseError) {
-                    // Se non è JSON, usa il testo grezzo (potrebbe essere un numero)
+                    console.warn("Errore nel parsing del JSON:", parseError);
                     payload = message.payloadString;
                 }
                 
-                switch (topic) {
-                    case MQTT_TOPICS.MACHINE_STATUS:
-                        if (!payload.request) {
-                            console.log("Ricevuto stato macchina:", payload);
-                            handleMachineStatus(payload);
-                        }
-                        break;
-                    case MQTT_TOPICS.CASH_STATUS:
-                        if (!payload.request) {
-                            console.log("Ricevuto stato cassa:", payload);
-                            handleCashStatus(payload);
-                        }
-                        break;
-                    case MQTT_TOPICS.BEVERAGE_STATUS:
-                        console.log("Ricevuto stato bevanda:", payload);
-                        handleBeverageStatus(payload);
-                        break;
-                    case MQTT_TOPICS.ALERTS:
-                        console.log("Ricevuto alert:", payload);
-                        handleAlerts(payload);
-                        break;
-                    default:
-                        // Non loggare messaggi non gestiti per topic sconosciuti
-                        break;
+                // Processo i messaggi in base al topic
+                if (topic === MQTT_TOPICS.MACHINE_STATUS_RESPONSE || topic === MQTT_TOPICS.MACHINE_STATUS_UPDATE) {
+                    console.log("Ricevuto stato macchina:", payload);
+                    handleMachineStatus(payload);
+                } 
+                else if (topic === MQTT_TOPICS.CASH_STATUS_RESPONSE) {
+                    console.log("Ricevuto stato cassa:", payload);
+                    handleCashStatus(payload);
+                } 
+                else if (topic === MQTT_TOPICS.BEVERAGE_STATUS_RESPONSE) {
+                    console.log("Ricevuto stato bevanda:", payload);
+                    handleBeverageStatus(payload);
+                } 
+                else if (topic === MQTT_TOPICS.BEVERAGE_LIST_RESPONSE) {
+                    console.log("Ricevuta lista bevande:", payload);
+                    // Gestione specifica per la lista aggiornata delle bevande
+                    if (payload && payload.bevande) {
+                        machineState.bevande = payload.bevande;
+                        renderBeverages(machineState.bevande);
+                    }
+                }
+                else if (topic === MQTT_TOPICS.ALERTS) {
+                    console.log("Ricevuto alert:", payload);
+                    handleAlerts(payload);
                 }
             } catch (error) {
                 console.error('Errore nel processamento del messaggio:', error);
@@ -687,93 +730,89 @@
                 }
                 
                 if (status.cassaAttuale / status.cassaMassima > 0.9) {
-                    publishMessage(MQTT_TOPICS.ALERTS, {
-                        tipo: 'CASSA_PIENA',
-                        messaggio: 'Necessario svuotamento cassa',
-                        livello: 2
-                    });
+                    const now = Date.now();
+                    if (now - lastCashAlertTime > CASH_ALERT_COOLDOWN) {
+                        lastCashAlertTime = now;
+                        publishMessage(MQTT_TOPICS.ALERTS, JSON.stringify({
+                            tipo: 'CASSA_PIENA',
+                            messaggio: 'Necessario svuotamento cassa',
+                            livello: 2
+                        }));
+                    }
                 }
             }
         }
         
         function handleCashStatus(status) {
-            // Ignora le richieste di status
-            if (status && typeof status === 'object' && status.request) {
-                return;
+            if (status && typeof status === 'object' && 'creditoAttuale' in status) {
+            	currentCredit = Math.round(status.creditoAttuale * 100) / 100;
+                
+                updateCreditDisplay();
+                updateDispenseButtonState();
+                elements.returnCreditButton.disabled = currentCredit <= 0;
             }
-            
-            // Verifica se status è una stringa (potrebbe essere un valore numerico diretto)
-            if (typeof status === 'string' && !isNaN(parseFloat(status))) {
-                currentCredit = parseFloat(status);
-            } 
-            // Verifica se è un oggetto con la proprietà creditoAttuale
-            else if (status && typeof status === 'object' && 'creditoAttuale' in status) {
-                currentCredit = status.creditoAttuale;
-            }
-            
-            // Assicura che currentCredit sia un numero
-            if (currentCredit === undefined || isNaN(currentCredit)) {
-                currentCredit = 0;
-                console.warn("Credito non valido, impostato a 0");
-            }
-            
-            updateCreditDisplay();
-            updateDispenseButtonState();
-            elements.returnCreditButton.disabled = currentCredit <= 0;
         }
 
         function handleBeverageStatus(status) {
-            if (status.completed) {
-                elements.dispensingOverlay.classList.add('hidden');
-                resetSelection();
-                showNotification('Bevanda erogata con successo!');
-                
-                // Richiedi aggiornamento dello stato solo una volta dopo l'erogazione completata
-                console.log("Richiesta aggiornamento stato dopo erogazione completata");
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-dispense-update' 
-                });
-                
-                // Aggiorna anche lo stato della cassa
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-dispense-update' 
-                });
-            } else if (status.error) {
-                elements.dispensingOverlay.classList.add('hidden');
-                showAlert(`Errore: ${status.error}`);
-                
-                // Richiedi aggiornamento solo una volta anche in caso di errore
-                console.log("Richiesta aggiornamento stato dopo errore erogazione");
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-error-update' 
-                });
-                
-                // Aggiorna anche lo stato della cassa
-                publishMessage(MQTT_TOPICS.CASH_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'post-error-update' 
-                });
+            if (!status || typeof status !== 'object') {
+                return;
             }
+            
+            console.log("Stato bevande ricevuto:", status);
+            
+            if (status.error) {
+                closeErogationModal();
+                showAlert(`Errore: ${status.error}`);
+                requestUpdatedState();
+            } 
+            else if (status.completed || status.success) {
+                closeErogationModal();
+                showNotification('Bevanda erogata con successo!');
+                requestUpdatedState();
+            } 
+            else if (status.bevande) {
+                // Aggiorna la lista delle bevande disponibili
+                machineState.bevande = status.bevande;
+                renderBeverages(machineState.bevande);
+            }
+            // Nuova gestione per i dettagli più complessi delle bevande
+            else if (status.hasOwnProperty('totaleDisponibili')) {
+                // Questo è un messaggio di stato dettagliato delle bevande
+                if (Array.isArray(status.bevande)) {
+                    machineState.bevande = status.bevande;
+                    renderBeverages(machineState.bevande);
+                }
+            }
+        }
+        
+        function requestUpdatedState() {
+            // Richiedi aggiornamento dello stato della macchina
+            publishMessage(MQTT_TOPICS.MACHINE_STATUS_REQUEST, JSON.stringify({ 
+                timestamp: Date.now() 
+            }));
+            
+            // Richiedi aggiornamento della cassa
+            publishMessage(MQTT_TOPICS.CASH_STATUS_REQUEST, JSON.stringify({ 
+                timestamp: Date.now() 
+            }));
         }
 
         function handleAlerts(alert) {
-            switch(alert.tipo) {
-                case 'CASSA_PIENA':
-                    showAlert('La cassa è quasi piena. Verrà chiamato un tecnico per lo svuotamento.');
-                    break;
-                case 'MANUTENZIONE_NECESSARIA':
-                    showAlert('È necessaria una manutenzione. Un tecnico verrà inviato presto.');
-                    break;
-                case 'CIALDE_ESAURITE':
-                    showAlert(`Cialde esaurite: ${alert.messaggio}`);
-                    break;
+            if (alert && typeof alert === 'object' && alert.tipo) {
+                switch(alert.tipo) {
+                    case 'CASSA_PIENA':
+                        showAlert('La cassa è quasi piena. Verrà chiamato un tecnico per lo svuotamento.');
+                        break;
+                    case 'MANUTENZIONE_NECESSARIA':
+                        showAlert('È necessaria una manutenzione. Un tecnico verrà inviato presto.');
+                        break;
+                    case 'CIALDE_ESAURITE':
+                        showAlert(`Cialde esaurite: ${alert.messaggio}`);
+                        break;
+                    case 'CREDITO_INSUFFICIENTE':
+                        showAlert('Credito insufficiente per la bevanda selezionata.');
+                        break;
+                }
             }
         }
 
@@ -835,6 +874,11 @@
         }
 
         function handleCoinInsertion(value) {
+            if (machineState.stato !== 1) {
+                showAlert('Macchina non disponibile per l\'inserimento di denaro.');
+                return;
+            }
+            
             if (machineState.cassaAttuale + currentCredit + value > machineState.cassaMassima) {
                 showAlert('Impossibile accettare monete. Cassa quasi piena.');
                 return;
@@ -842,24 +886,28 @@
 
             console.log("Inserimento moneta:", value);
             
-            // Aggiorna il credito lato client per feedback immediato
+            // Pubblica il messaggio MQTT per l'inserimento del credito
+            publishMessage(MQTT_TOPICS.CASH_INSERT, JSON.stringify({
+                importo: value,
+                timestamp: Date.now()
+            }));
+            
+            // Aggiorna temporaneamente il credito lato client per feedback immediato
+            // Il valore reale verrà aggiornato quando arriverà la risposta dal server
             currentCredit += value;
             updateCreditDisplay();
             updateDispenseButtonState();
-            elements.returnCreditButton.disabled = currentCredit <= 0;
-            
-            // Pubblica il messaggio MQTT - Converti esplicitamente il valore in stringa
-            const valueStr = value.toString();
-            const mqttMessage = new Paho.MQTT.Message(valueStr);
-            mqttMessage.destinationName = MQTT_TOPICS.CASH_INSERT;
-            client.send(mqttMessage);
+            elements.returnCreditButton.disabled = false;
         }
 
         function handleCreditReturn() {
             if (currentCredit <= 0) return;
             
             const creditToReturn = currentCredit;
-            publishMessage(MQTT_TOPICS.CASH_RETURN, currentCredit);
+            publishMessage(MQTT_TOPICS.CASH_RETURN, JSON.stringify({
+                importo: currentCredit,
+                timestamp: Date.now()
+            }));
             
             // Mostra subito un messaggio con il credito restituito
             showNotification(`Restituiti € ${creditToReturn.toFixed(2)}`);
@@ -872,149 +920,159 @@
             
             // Richiedi aggiornamento dello stato della macchina dopo la restituzione
             setTimeout(() => {
-                requestInitialState();
+                requestUpdatedState();
             }, 500);
         }
 
-        async function handleBeverageRequest() {
-            if (!selectedBeverage || currentCredit < selectedBeverage.price) return;
-            
-            try {
-                // Verifica lo stato della macchina prima di procedere con l'erogazione
-                await checkMachineStatusBeforeDispense();
-                
-                elements.dispensingOverlay.classList.remove('hidden');
-                publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
-                    bevandaId: selectedBeverage.id,
-                    importo: selectedBeverage.price,
-                    zucchero: sugarLevel,
-                    timestamp: Date.now()
-                });
-            } catch (error) {
-                showAlert(`Non è possibile erogare: ${error.message}`);
-            }
-        }
-        
         // Funzione per verificare lo stato della macchina prima dell'erogazione
         async function checkMachineStatusBeforeDispense() {
             return new Promise((resolve, reject) => {
-                console.log("Verifica stato macchina prima dell'erogazione");
+                // Verifica subito se il credito è sufficiente
+                if (currentCredit < selectedBeverage.price) {
+                    reject(new Error("Credito insufficiente"));
+                    return;
+                }
                 
-                // Richiedi lo stato attuale della macchina una sola volta
-                publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
-                    request: 'getStatus', 
-                    timestamp: Date.now(),
-                    purpose: 'pre-dispense-check'
-                });
+                // Verifica lo stato della macchina
+                if (machineState.stato !== 1) {
+                    reject(new Error("La macchina non è attiva"));
+                    return;
+                }
                 
-                // Aspetta una risposta per massimo 3 secondi
-                const timeout = setTimeout(() => {
-                    console.warn("Timeout nella verifica dello stato della macchina");
-                    reject(new Error("Timeout verifica stato macchina"));
-                }, 3000);
-                
-                // Funzione temporanea per gestire la risposta
-                const tempHandler = function(message) {
-                    try {
-                        if (message.destinationName === MQTT_TOPICS.MACHINE_STATUS) {
-                            let payload;
-                            try {
-                                payload = JSON.parse(message.payloadString);
-                            } catch {
-                                payload = message.payloadString;
-                            }
-                            
-                            // Ignora i messaggi di richiesta
-                            if (payload.request) return;
-                            
-                            console.log("Ricevuta risposta stato macchina pre-erogazione:", payload);
-                            
-                            // Aggiorna lo stato della macchina
-                            if (payload && typeof payload === 'object') {
-                                machineState = { ...machineState, ...payload };
-                                
-                                // Verifica se la macchina è attiva
-                                if (machineState.stato !== 1) {
-                                    clearTimeout(timeout);
-                                    client.onMessageArrived = onMessageArrived; // Ripristina il gestore originale
-                                    reject(new Error("La macchina non è attiva"));
-                                    return;
-                                }
-                                
-                                // Verifica credito
-                                if (currentCredit < selectedBeverage.price) {
-                                    clearTimeout(timeout);
-                                    client.onMessageArrived = onMessageArrived;
-                                    reject(new Error("Credito insufficiente"));
-                                    return;
-                                }
-                                
-                                // Tutto ok, procedi
-                                clearTimeout(timeout);
-                                client.onMessageArrived = onMessageArrived;
-                                resolve();
-                            }
-                        }
-                    } catch (error) {
-                        console.error('Errore nella verifica dello stato:', error);
-                        clearTimeout(timeout);
-                        client.onMessageArrived = onMessageArrived;
-                        reject(error);
-                    }
-                };
-                
-                // Salva il gestore originale e sostituiscilo temporaneamente
-                const originalHandler = client.onMessageArrived;
-                client.onMessageArrived = tempHandler;
-                
-                // Dopo il timeout, ripristina il gestore originale
-                setTimeout(() => {
-                    if (client.onMessageArrived === tempHandler) {
-                        console.log("Ripristino handler originale dopo timeout");
-                        client.onMessageArrived = onMessageArrived;
-                    }
-                }, 3100);
+                // Tutto ok, procedi
+                resolve();
             });
         }
 
         // Funzioni di gestione delle bevande
         function selectBeverage(beverageId, price, isAvailable) {
-            if (!isAvailable) return;
+            if (!isAvailable) {
+                showAlert('Bevanda non disponibile. Selezionane un\'altra.');
+                return;
+            }
             
             selectedBeverage = { id: beverageId, price };
+            
+            // Aggiorna UI
             document.querySelectorAll('.beverage-card').forEach(card => {
                 card.classList.remove('selected');
             });
-            document.querySelector(`.beverage-card[data-id="${beverageId}"]`).classList.add('selected');
-            document.getElementById('customizationOptions').classList.remove('hidden');
-            updateDispenseButtonState();
+            
+            const selectedCard = document.querySelector(`.beverage-card[data-id="${beverageId}"]`);
+            if (selectedCard) {
+                selectedCard.classList.add('selected');
+                document.getElementById('customizationOptions').classList.remove('hidden');
+                updateDispenseButtonState();
+            } else {
+                console.warn(`Bevanda con ID ${beverageId} non trovata nell'interfaccia`);
+            }
         }
 
         async function loadBeverages() {
             try {
+                console.log(`Richiesta bevande per macchina ID: ${currentMachineId}`);
                 const response = await axios.get(
                     `${API_BASE_URL}/macchine/${currentMachineId}/bevande`,
                     { headers: AuthUtils.getAuthHeaders() }
                 );
-                machineState.bevande = response.data;
-                renderBeverages(machineState.bevande);
+                
+                console.log("Risposta API bevande:", response);
+                
+                // Verifica che ci siano dati
+                if (!response.data || response.data.length === 0) {
+                    console.warn("Nessuna bevanda restituita dall'API");
+                    elements.beveragesList.innerHTML = '<p class="text-center p-4 text-gray-500">Nessuna bevanda disponibile al momento.</p>';
+                    return;
+                }
+                
+                // Elaborazione dei dati delle bevande
+                let beverages = response.data;
+                
+                // Assicurati che ogni bevanda abbia la proprietà disponibile
+                beverages = beverages.map(beverage => {
+                    // Se la proprietà disponibile non è definita, verifica la disponibilità in base alle cialde
+                    if (typeof beverage.disponibile !== 'boolean') {
+                        // Una bevanda è disponibile se tutte le sue cialde hanno quantità > 0
+                        beverage.disponibile = beverage.cialde ? 
+                            beverage.cialde.every(cialda => 
+                                cialda.quantitaDisponibile && cialda.quantitaDisponibile > 0) : 
+                            false;
+                    }
+                    return beverage;
+                });
+                
+                // Aggiorna lo stato interno e renderizza le bevande
+                machineState.bevande = beverages;
+                renderBeverages(beverages);
+                
+                console.log("Bevande caricate con successo:", beverages);
             } catch (error) {
                 console.error('Errore nel caricamento delle bevande:', error);
                 showAlert('Errore nel caricamento delle bevande disponibili');
+                
+                // Nel caso di errore, tentiamo di recuperare lo stato dalle sottoscrizioni MQTT
+                publishMessage(MQTT_TOPICS.BEVERAGE_STATUS_REQUEST, JSON.stringify({ 
+                    timestamp: Date.now() 
+                }));
             }
         }
 
         function renderBeverages(beverages) {
+            if (!beverages || beverages.length === 0) {
+                elements.beveragesList.innerHTML = '<p class="text-gray-600">Nessuna bevanda disponibile</p>';
+                return;
+            }
+            
+            // Assegna categorie alle bevande se non ne hanno
+            beverages.forEach(beverage => {
+                // Se la bevanda non ha già una categoria, assegnane una basata sul nome
+                if (!beverage.categoria) {
+                    if (beverage.nome.toLowerCase().includes('caffè') || 
+                        beverage.nome.toLowerCase().includes('espresso') ||
+                        beverage.nome.toLowerCase().includes('cappuccino') ||
+                        beverage.nome.toLowerCase().includes('ginseng') ||
+                        beverage.nome.toLowerCase().includes('orzo') ||
+                        beverage.nome.toLowerCase().includes('macchiato') ||
+                        beverage.nome.toLowerCase().includes('mocaccino')) {
+                        beverage.categoria = 'CAFFÈ';
+                    } else if (beverage.nome.toLowerCase().includes('te') || 
+                               beverage.nome.toLowerCase().includes('tè') ||
+                               beverage.nome.toLowerCase().includes('camomilla')) {
+                        beverage.categoria = 'TÈ E INFUSI';
+                    } else if (beverage.nome.toLowerCase().includes('cioccolata')) {
+                        beverage.categoria = 'CIOCCOLATA';
+                    } else {
+                        beverage.categoria = 'ALTRO'; // Categoria di default per bevande non specificate
+                    }
+                }
+            });
+            
+            // Render delle bevande con indicazione chiara di disponibilità
             elements.beveragesList.innerHTML = beverages.map(beverage => `
                 <div class="beverage-card ${beverage.disponibile ? '' : 'unavailable'}" 
                      data-id="${beverage.id}" 
                      data-price="${beverage.prezzo}"
+                     data-category="${beverage.categoria || 'ALTRO'}"
                      onclick="selectBeverage(${beverage.id}, ${beverage.prezzo}, ${beverage.disponibile})">
                     <h3 class="font-bold">${beverage.nome}</h3>
-                    <p class="text-gray-600">€${beverage.prezzo.toFixed(2)}</p>
-                    ${beverage.disponibile ? '' : '<p class="text-red-600">Non disponibile</p>'}
+                    <p class="text-gray-600">€${typeof beverage.prezzo === 'number' ? beverage.prezzo.toFixed(2) : '0.00'}</p>
+                    ${beverage.disponibile ? 
+                        '<span class="text-green-600 block mt-2"><i class="fas fa-check-circle"></i> Disponibile</span>' : 
+                        '<span class="text-red-600 block mt-2"><i class="fas fa-times-circle"></i> Non disponibile</span>'}
                 </div>
             `).join('');
+            
+            // Imposta il tab attivo per "Tutte"
+            document.querySelectorAll('.tab-button').forEach(tab => {
+                const category = tab.getAttribute('data-category');
+                if (category === 'all') {
+                    tab.classList.add('bg-blue-600', 'text-white');
+                    tab.classList.remove('bg-gray-200');
+                } else {
+                    tab.classList.remove('bg-blue-600', 'text-white');
+                    tab.classList.add('bg-gray-200');
+                }
+            });
         }
         
         function resetSelection() {
@@ -1026,36 +1084,472 @@
             updateDispenseButtonState();
         }
 
-        // Utility
         function publishMessage(topic, message) {
-            if (!client?.isConnected()) {
+            if (!client || !client.isConnected()) {
+                console.warn("Client MQTT non connesso. Impossibile pubblicare il messaggio");
                 showAlert('Non connesso al sistema');
                 return;
             }
-
-            // Converti il messaggio in stringa JSON
-            let messageStr;
-            if (typeof message === 'object') {
-                messageStr = JSON.stringify(message);
-            } else {
-                messageStr = String(message); // Converti numeri o altri tipi in stringhe
-            }
             
-            const payload = new Paho.MQTT.Message(messageStr);
-            payload.destinationName = topic;
-            payload.qos = 1;
-            payload.retained = false;
+            try {
+                if (topic === MQTT_TOPICS.MACHINE_STATUS_REQUEST && 
+                    typeof message === 'object' && message.request === 'getStatus') {
+                    const now = Date.now();
+                    if (now - lastStateRequestTime < STATE_REQUEST_DEBOUNCE) {
+                        console.log("Richiesta stato ignorata (debounce)");
+                        return;
+                    }
+                    lastStateRequestTime = now;
+                }
+                
+                // Se il messaggio è già una stringa, usalo direttamente
+                const messageStr = typeof message === 'string' ? message : JSON.stringify(message);
+                const payload = new Paho.MQTT.Message(messageStr);
+                payload.destinationName = topic;
+                payload.qos = 1;
+                payload.retained = false;
 
-            client.send(payload);
-            console.log(`Pubblicato: Topic: ${topic} - Messaggio: ${messageStr}`);
+                client.send(payload);
+                console.log(`Pubblicato: Topic: ${topic} - Messaggio: ${messageStr}`);
+            } catch (error) {
+                console.error("Errore nella pubblicazione del messaggio MQTT:", error);
+                showAlert("Errore di comunicazione");
+            }
         }
 
         // Funzione per azzerare il credito prima di lasciare la pagina
         function resetCreditBeforeLeaving() {
             if (currentCredit > 0) {
                 console.log("Richiesta restituzione credito prima di lasciare la pagina: €", currentCredit);
-                publishMessage(MQTT_TOPICS.CASH_RETURN, currentCredit);
+                publishMessage(MQTT_TOPICS.CASH_RETURN, JSON.stringify({
+                    importo: currentCredit,
+                    timestamp: Date.now()
+                }));
                 currentCredit = 0;
+            }
+        }
+        
+        function openErogationModal() {
+            const modal = document.getElementById('erogationModal');
+            const modalContent = document.getElementById('modalContent');
+
+            // Carica la pagina HTML generata nel modale
+            modalContent.innerHTML = `
+                <style>
+                    #erogationModal .loader {
+                    }
+
+                    #erogationModal .container {
+                        width: 300px;
+                        height: 280px;
+                        position: absolute;
+                        top: calc(50% - 140px);
+                        left: calc(50% - 150px);
+                    }
+
+                    #erogationModal .coffee-header {
+                        width: 100%;
+                        height: 80px;
+                        position: absolute;
+                        top: 0;
+                        left: 0;
+                        background-color: #ddcfcc;
+                        border-radius: 10px;
+                    }
+
+                    #erogationModal .coffee-header__buttons {
+                        width: 25px;
+                        height: 25px;
+                        position: absolute;
+                        top: 25px;
+                        background-color: #282323;
+                        border-radius: 50%;
+                    }
+
+                    #erogationModal .coffee-header__buttons::after {
+                        content: "";
+                        width: 8px;
+                        height: 8px;
+                        position: absolute;
+                        bottom: -8px;
+                        left: calc(50% - 4px);
+                        background-color: #615e5e;
+                    }
+
+                    #erogationModal .coffee-header__button-one {
+                        left: 15px;
+                    }
+
+                    #erogationModal .coffee-header__button-two {
+                        left: 50px;
+                    }
+
+                    #erogationModal .coffee-header__display {
+                        width: 50px;
+                        height: 50px;
+                        position: absolute;
+                        top: calc(50% - 25px);
+                        left: calc(50% - 25px);
+                        border-radius: 50%;
+                        background-color: #000000;
+                        border: 5px solid #ff0000;
+                        box-sizing: border-box;
+                    }
+
+                    #erogationModal .coffee-header__details {
+                        width: 8px;
+                        height: 20px;
+                        position: absolute;
+                        top: 10px;
+                        right: 10px;
+                        background-color: #9b9091;
+                        box-shadow: -12px 0 0 #9b9091, -24px 0 0 #9b9091;
+                    }
+
+                    #erogationModal .coffee-medium {
+                        width: 90%;
+                        height: 160px;
+                        position: absolute;
+                        top: 80px;
+                        left: calc(50% - 45%);
+                        background-color: #bcb0af;
+                    }
+
+                    #erogationModal .coffee-medium:before {
+                        content: "";
+                        width: 90%;
+                        height: 100px;
+                        background-color: #776f6e;
+                        position: absolute;
+                        bottom: 0;
+                        left: calc(50% - 45%);
+                        border-radius: 20px 20px 0 0;
+                    }
+
+                    #erogationModal .coffe-medium__exit {
+                        width: 60px;
+                        height: 20px;
+                        position: absolute;
+                        top: 0;
+                        left: calc(50% - 30px);
+                        background-color: #231f20;
+                    }
+
+                    #erogationModal .coffe-medium__exit::before {
+                        content: "";
+                        width: 50px;
+                        height: 20px;
+                        border-radius: 0 0 50% 50%;
+                        position: absolute;
+                        bottom: -20px;
+                        left: calc(50% - 25px);
+                        background-color: #231f20;
+                    }
+
+                    #erogationModal .coffe-medium__exit::after {
+                        content: "";
+                        width: 10px;
+                        height: 10px;
+                        position: absolute;
+                        bottom: -30px;
+                        left: calc(50% - 5px);
+                        background-color: #231f20;
+                    }
+
+                    #erogationModal .coffee-medium__arm::before {
+                        content: "";
+                        width: 15px;
+                        height: 5px;
+                        position: absolute;
+                        top: 7px;
+                        left: -15px;
+                        background-color: #9e9495;
+                    }
+
+                    #erogationModal .coffee-medium__cup {
+                        width: 80px;
+                        height: 47px;
+                        position: absolute;
+                        bottom: 0;
+                        left: calc(50% - 40px);
+                        background-color: #FFF;
+                        border-radius: 0 0 70px 70px / 0 0 110px 110px;
+                    }
+
+                    #erogationModal .coffee-medium__cup::after {
+                        content: "";
+                        width: 20px;
+                        height: 20px;
+                        position: absolute;
+                        top: 6px;
+                        right: -13px;
+                        border: 5px solid #FFF;
+                        border-radius: 50%;
+                    }
+
+                    @keyframes liquid {
+                        0% {
+                            height: 0px;
+                            opacity: 1;
+                        }
+
+                        5% {
+                            height: 0px;
+                            opacity: 1;
+                        }
+
+                        20% {
+                            height: 62px;
+                            opacity: 1;
+                        }
+
+                        95% {
+                            height: 62px;
+                            opacity: 1;
+                        }
+
+                        100% {
+                            height: 62px;
+                            opacity: 0;
+                        }
+                    }
+
+                    #erogationModal .coffee-medium__liquid {
+                        width: 6px;
+                        height: 63px;
+                        opacity: 0;
+                        position: absolute;
+                        top: 50px;
+                        left: calc(50% - 3px);
+                        background-color: #74372b;
+                        animation: liquid 4s 4s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke {
+                        width: 8px;
+                        height: 20px;
+                        position: absolute;
+                        border-radius: 5px;
+                        background-color: #b3aeae;
+                    }
+
+                    @keyframes smokeOne {
+                        0% {
+                            bottom: 20px;
+                            opacity: 0;
+                        }
+
+                        40% {
+                            bottom: 50px;
+                            opacity: .5;
+                        }
+
+                        80% {
+                            bottom: 80px;
+                            opacity: .3;
+                        }
+
+                        100% {
+                            bottom: 80px;
+                            opacity: 0;
+                        }
+                    }
+
+                    @keyframes smokeTwo {
+                        0% {
+                            bottom: 40px;
+                            opacity: 0;
+                        }
+
+                        40% {
+                            bottom: 70px;
+                            opacity: .5;
+                        }
+
+                        80% {
+                            bottom: 80px;
+                            opacity: .3;
+                        }
+
+                        100% {
+                            bottom: 80px;
+                            opacity: 0;
+                        }
+                    }
+
+                    #erogationModal .coffee-medium__smoke-one {
+                        opacity: 0;
+                        bottom: 50px;
+                        left: 102px;
+                        animation: smokeOne 3s 4s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke-two {
+                        opacity: 0;
+                        bottom: 70px;
+                        left: 118px;
+                        animation: smokeTwo 3s 5s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke-three {
+                        opacity: 0;
+                        bottom: 65px;
+                        right: 118px;
+                        animation: smokeTwo 3s 6s linear infinite;
+                    }
+
+                    #erogationModal .coffee-medium__smoke-for {
+                        opacity: 0;
+                        bottom: 50px;
+                        right: 102px;
+                        animation: smokeOne 3s 5s linear infinite;
+                    }
+
+                    #erogationModal .coffee-footer {
+                        width: 95%;
+                        height: 15px;
+                        position: absolute;
+                        bottom: 25px;
+                        left: calc(50% - 47.5%);
+                        background-color: #4d4d4d;
+                        border-radius: 10px;
+                    }
+
+                    #erogationModal .coffee-footer::after {
+                        content: "";
+                        width: 106%;
+                        height: 26px;
+                        position: absolute;
+                        bottom: -25px;
+                        left: -8px;
+                        background-color: #000;
+                    }
+
+                    #erogationModal .screen {
+                        width: 100%;
+                        height: 60px;
+                        position: absolute;
+                        top: -70px;
+                        left: 0;
+                        background-color: #333;
+                        border-radius: 10px;
+                        padding: 10px;
+                        box-sizing: border-box;
+                        color: #fff;
+                        font-family: Arial, sans-serif;
+                        text-align: center;
+                    }
+
+                    #erogationModal .screen-text {
+                        font-size: 14px;
+                        margin-bottom: 10px;
+                    }
+
+                    #erogationModal .progress-bar {
+                        width: 100%;
+                        height: 10px;
+                        background-color: #555;
+                        border-radius: 5px;
+                        overflow: hidden;
+                    }
+
+                    #erogationModal .progress {
+                        width: 0%;
+                        height: 100%;
+                        background-color: #4caf50;
+                        border-radius: 5px;
+                        animation: progress 10s linear forwards;
+                    }
+
+                    @keyframes progress {
+                        0% {
+                            width: 0%;
+                        }
+                        100% {
+                            width: 100%;
+                        }
+                    }
+                </style>
+                <div class="loader">
+                    <div class="container">
+                        <div class="screen">
+                            <div class="screen-text">Erogazione bevanda in corso...</div>
+                            <div class="progress-bar">
+                                <div class="progress"></div>
+                            </div>
+                        </div>
+                        <div class="coffee-header">
+                            <div class="coffee-header__buttons coffee-header__button-one"></div>
+                            <div class="coffee-header__buttons coffee-header__button-two"></div>
+                            <div class="coffee-header__display"></div>
+                            <div class="coffee-header__details"></div>
+                        </div>
+                        <div class="coffee-medium">
+                            <div class="coffe-medium__exit"></div>
+                            <div class="coffee-medium__liquid"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-one"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-two"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-three"></div>
+                            <div class="coffee-medium__smoke coffee-medium__smoke-for"></div>
+                            <div class="coffee-medium__cup"></div>
+                        </div>
+                        <div class="coffee-footer"></div>
+                    </div>
+                </div>
+            `;
+
+            // Mostra il modale
+            modal.classList.remove('hidden');
+        }
+
+        // Funzione per chiudere il modale
+        function closeErogationModal() {
+            const modal = document.getElementById('erogationModal');
+            modal.classList.add('hidden');
+        }
+        
+        async function handleBeverageRequest() {
+            if (!selectedBeverage || currentCredit < selectedBeverage.price) {
+                showAlert('Credito insufficiente per la bevanda selezionata.');
+                return;
+            }
+            
+            try {
+                // Verifica lo stato della macchina prima di procedere con l'erogazione
+                await checkMachineStatusBeforeDispense();
+                
+                // Apri il modale di erogazione
+                openErogationModal();
+                
+                // Pubblica il messaggio MQTT per richiedere l'erogazione
+                const message = {
+                    bevandaId: selectedBeverage.id,
+                    importo: selectedBeverage.price,
+                    livelloZucchero: sugarLevel,
+                    timestamp: Date.now()
+                };
+                
+                console.log("Richiesta erogazione bevanda:", message);
+                
+                // Pubblica la richiesta sul topic MQTT
+                publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, JSON.stringify(message));
+                
+                // Richiedi l'aggiornamento dello stato dopo un breve ritardo
+                setTimeout(() => {
+                    requestUpdatedState();
+                }, 5000);
+                
+                // Chiudi automaticamente il modale dopo 10 secondi
+                setTimeout(() => {
+                    closeErogationModal();
+                    resetSelection();
+                    // Richiedi aggiornamento finale dello stato
+                    requestUpdatedState();
+                }, 10000);
+                
+            } catch (error) {
+                showAlert(`Non è possibile erogare: ${error.message}`);
+                closeErogationModal();
             }
         }
 
@@ -1063,6 +1557,7 @@
         axios.interceptors.response.use(
             response => response,
             async error => {
+                console.error("Errore Axios:", error);
                 if (error.response?.status === 401) {
                     // Token scaduto o non valido
                     localStorage.removeItem('jwt_token');
@@ -1088,15 +1583,14 @@
             
             if (category === 'all') {
                 document.querySelectorAll('.beverage-card').forEach(card => {
-                    card.classList.remove('hidden');
+                    card.style.display = '';
                 });
             } else {
                 document.querySelectorAll('.beverage-card').forEach(card => {
-                    const beverage = machineState.bevande.find(b => b.id === parseInt(card.dataset.id));
-                    if (beverage && beverage.categoria === category) {
-                        card.classList.remove('hidden');
+                    if (card.getAttribute('data-category') === category) {
+                        card.style.display = '';
                     } else {
-                        card.classList.add('hidden');
+                        card.style.display = 'none';
                     }
                 });
             }
@@ -1123,7 +1617,7 @@
 
             // Listener per i tab categorie
             document.querySelectorAll('.tab-button').forEach(tab => {
-                tab.addEventListener('click', () => {
+            	tab.addEventListener('click', () => {
                     filterBeverages(tab.getAttribute('data-category'));
                 });
             });
@@ -1160,6 +1654,7 @@
             try {
                 await initializeMachineState();
                 setupEventListeners();
+                console.log("Interfaccia inizializzata con successo");
             } catch (error) {
                 console.error('Errore durante l\'inizializzazione:', error);
                 showAlert('Errore durante l\'inizializzazione dell\'interfaccia');
