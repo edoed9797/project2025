@@ -76,8 +76,13 @@
         }
         
         .p-8 {
+<<<<<<< HEAD
             padding: 14rem;
         }
+=======
+        	padding: 14rem;
+		}
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
 
         .status-active {
             background-color: #10B981;
@@ -288,9 +293,15 @@
 
                 <!-- Pulsanti Azione -->
                 <div class="flex gap-4">
+<<<<<<< HEAD
                     <button id="dispenseButton" class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" disabled>
                         Eroga
                     </button>
+=======
+                    <button id="dispenseButton" class="flex-1 px-6 py-3 bg-blue-600 text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed" onclick="openErogationModal()" disabled>
+						Eroga
+					</button>
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
                     <button id="returnCreditButton" 
                             class="px-6 py-3 bg-gray-200 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
                             disabled>
@@ -300,6 +311,7 @@
             </div>
         </div>
     </div>
+<<<<<<< HEAD
     
     <!-- Modale per l'erogazione -->
     <div id="erogationModal" class="overlay hidden">
@@ -309,8 +321,27 @@
                 <!-- Qui verrà caricata la pagina HTML generata -->
             </div>
             <h4>Attendi..</h4>
+=======
+	<!-- Modale per l'erogazione -->
+	<div id="erogationModal" class="overlay hidden">
+		<div class="bg-white p-8 rounded-lg text-center w-full max-w-2xl">
+			<!-- Contenuto del modale -->
+			<div id="modalContent">
+				<!-- Qui verrà caricata la pagina HTML generata -->
+				
+			</div>
+			<h4>Attendi..</h4>
+		</div>
+	</div>
+    <!-- Overlay Erogazione
+    <div id="dispensingOverlay" class="overlay hidden">
+        <div class="bg-white p-8 rounded-lg text-center">
+            <div class="animate-spin rounded-full h-12 w-12 border-4 border-blue-600 border-t-transparent mb-4 mx-auto"></div>
+            <h3 class="text-xl font-bold mb-4">Erogazione in Corso</h3>
+            <p id="dispensingStatus" class="text-gray-600">Preparazione bevanda...</p>
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         </div>
-    </div>
+    </div> -->
 
     <!-- Alert -->
     <div id="alertBox" class="alert">
@@ -373,21 +404,37 @@
             userName: document.getElementById('userName')
         };
 
+<<<<<<< HEAD
         // Topic MQTT - variabili da inizializzare con l'ID macchina
         let MQTT_TOPICS = {
             MACHINE_STATUS_REQUEST: 'macchine/${machineId}/stato/richiesta',
             MACHINE_STATUS_RESPONSE: 'macchine/${machineId}/stato/risposta',
             MACHINE_STATUS_UPDATE: 'macchine/${machineId}/stato/aggiornamento',
+=======
+        // Topic MQTT - verranno aggiornati con l'ID corretto
+        const MQTT_TOPICS = {
+            // Topic di sottoscrizione per lo stato della macchina
+            MACHINE_STATUS: 'macchine/${machineId}/stato',
+            MACHINE_STATUS_REQUEST: 'macchine/${machineId}/stato',
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             
             CASH_INSERT: 'macchine/${machineId}/cassa/inserimentoCredito', 
             CASH_RETURN: 'macchine/${machineId}/cassa/richiestaResto',
+<<<<<<< HEAD
             CASH_STATUS_REQUEST: 'macchine/${machineId}/cassa/stato/richiesta',
             CASH_STATUS_RESPONSE: 'macchine/${machineId}/cassa/stato/risposta',
+=======
+            CASH_STATUS: 'macchine/${machineId}/cassa/stato',
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             
             BEVERAGE_REQUEST: 'macchine/${machineId}/cassa/richiestaBevanda',
+<<<<<<< HEAD
             BEVERAGE_STATUS_REQUEST: 'macchine/${machineId}/bevande/stato/richiesta',
             BEVERAGE_STATUS_RESPONSE: 'macchine/${machineId}/bevande/stato/risposta',
             BEVERAGE_LIST_RESPONSE: 'macchine/${machineId}/bevande/lista/risposta',
+=======
+            BEVERAGE_STATUS: 'macchine/${machineId}/bevande/stato',
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             
             ALERTS: 'macchine/${machineId}/eventi'
         };
@@ -596,6 +643,7 @@
         
         function requestInitialState() {
             console.log("Richiesta stato iniziale della macchina");
+<<<<<<< HEAD
             
             try {
                 // Richiedi lo stato della macchina
@@ -619,6 +667,10 @@
                 console.error("Errore nell'invio delle richieste di stato:", error);
                 showAlert("Errore nella comunicazione con la macchina");
             }
+=======
+            publishMessage(MQTT_TOPICS.MACHINE_STATUS_REQUEST, { timestamp: Date.now() });
+            
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         }
 
         function onConnectFailure(error) {
@@ -656,15 +708,21 @@
         }
 
         function onMessageArrived(message) {
+<<<<<<< HEAD
             console.log(`Messaggio ricevuto sul topic ${message.destinationName}: ${message.payloadString}`);
             
             try {
+=======
+        	console.log(`[${new Date().toISOString()}] MQTT Messaggio ricevuto: ${message.destinationName}`, message.payloadString);
+        	try {
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
                 const topic = message.destinationName;
                 let payload;
                 
                 try {
                     payload = JSON.parse(message.payloadString);
                 } catch (parseError) {
+<<<<<<< HEAD
                     console.warn("Errore nel parsing del JSON:", parseError);
                     payload = message.payloadString;
                 }
@@ -693,6 +751,39 @@
                 else if (topic === MQTT_TOPICS.ALERTS) {
                     console.log("Ricevuto alert:", payload);
                     handleAlerts(payload);
+=======
+                    payload = message.payloadString;
+                }
+                
+                const isRequestMessage = payload && 
+                typeof payload === 'object' && 
+                (payload.request || payload.purpose);
+                
+                switch (topic) {
+                    case MQTT_TOPICS.MACHINE_STATUS:
+                        if (!isRequestMessage) {
+                            console.log("Ricevuto stato macchina:", payload);
+                            handleMachineStatus(payload);
+                        }
+                        break;
+                    case MQTT_TOPICS.CASH_STATUS:
+                        if (!payload.request) {
+                            console.log("Ricevuto stato cassa:", payload);
+                            handleCashStatus(payload);
+                        }
+                        break;
+                    case MQTT_TOPICS.BEVERAGE_STATUS:
+                        console.log("Ricevuto stato bevanda:", payload);
+                        handleBeverageStatus(payload);
+                        break;
+                    case MQTT_TOPICS.ALERTS:
+                        console.log("Ricevuto alert:", payload);
+                        handleAlerts(payload);
+                        break;
+                    default:
+                        // Non loggare messaggi non gestiti per topic sconosciuti
+                        break;
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
                 }
             } catch (error) {
                 console.error('Errore nel processamento del messaggio:', error);
@@ -714,7 +805,7 @@
         // Gestori dei messaggi MQTT
         function handleMachineStatus(status) {
             // Aggiorna lo stato della macchina solo se abbiamo dati validi
-            if (status && typeof status === 'object') {
+            if (status && typeof status === 'object' && !status.request) {
                 machineState = { ...machineState, ...status };
                 
                 // Aggiorna l'interfaccia
@@ -733,11 +824,19 @@
                     const now = Date.now();
                     if (now - lastCashAlertTime > CASH_ALERT_COOLDOWN) {
                         lastCashAlertTime = now;
+<<<<<<< HEAD
                         publishMessage(MQTT_TOPICS.ALERTS, JSON.stringify({
                             tipo: 'CASSA_PIENA',
                             messaggio: 'Necessario svuotamento cassa',
                             livello: 2
                         }));
+=======
+                        publishMessage(MQTT_TOPICS.ALERTS, {
+                            tipo: 'CASSA_PIENA',
+                            messaggio: 'Necessario svuotamento cassa',
+                            livello: 2
+                        });
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
                     }
                 }
             }
@@ -754,6 +853,7 @@
         }
 
         function handleBeverageStatus(status) {
+<<<<<<< HEAD
             if (!status || typeof status !== 'object') {
                 return;
             }
@@ -796,6 +896,46 @@
                 timestamp: Date.now() 
             }));
         }
+=======
+			if (status.completed) {
+				closeErogationModal();
+				showNotification('Bevanda erogata con successo!');
+				
+				// Richiedi aggiornamento dello stato solo una volta dopo l'erogazione completata
+				console.log("Richiesta aggiornamento stato dopo erogazione completata");
+				publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-dispense-update' 
+				});
+				
+				// Aggiorna anche lo stato della cassa
+				publishMessage(MQTT_TOPICS.CASH_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-dispense-update' 
+				});
+			} else if (status.error) {
+				closeErogationModal();
+				showAlert(`Errore: ${status.error}`);
+				
+				// Richiedi aggiornamento solo una volta anche in caso di errore
+				console.log("Richiesta aggiornamento stato dopo errore erogazione");
+				publishMessage(MQTT_TOPICS.MACHINE_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-error-update' 
+				});
+				
+				// Aggiorna anche lo stato della cassa
+				publishMessage(MQTT_TOPICS.CASH_STATUS, { 
+					request: 'getStatus', 
+					timestamp: Date.now(),
+					purpose: 'post-error-update' 
+				});
+			}
+		}
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
 
         function handleAlerts(alert) {
             if (alert && typeof alert === 'object' && alert.tipo) {
@@ -924,6 +1064,10 @@
             }, 500);
         }
 
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         // Funzione per verificare lo stato della macchina prima dell'erogazione
         async function checkMachineStatusBeforeDispense() {
             return new Promise((resolve, reject) => {
@@ -1084,12 +1228,36 @@
             updateDispenseButtonState();
         }
 
+<<<<<<< HEAD
+=======
+        
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         function publishMessage(topic, message) {
             if (!client || !client.isConnected()) {
                 console.warn("Client MQTT non connesso. Impossibile pubblicare il messaggio");
                 showAlert('Non connesso al sistema');
                 return;
             }
+<<<<<<< HEAD
+=======
+            
+            if (topic === MQTT_TOPICS.MACHINE_STATUS && message && message.request === 'getStatus') {
+                    const now = Date.now();
+                    if (now - lastStateRequestTime < STATE_REQUEST_DEBOUNCE) {
+                        console.log("Richiesta stato ignorata (debounce)");
+                        return;
+                    }
+                    lastStateRequestTime = now;
+            }
+            
+            // Converti il messaggio in stringa JSON
+            let messageStr;
+            if (typeof message === 'object') {
+                messageStr = JSON.stringify(message);
+            } else {
+                messageStr = String(message); // Converti numeri o altri tipi in stringhe
+            }
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             
             try {
                 if (topic === MQTT_TOPICS.MACHINE_STATUS_REQUEST && 
@@ -1128,7 +1296,11 @@
                 currentCredit = 0;
             }
         }
+<<<<<<< HEAD
         
+=======
+		
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         function openErogationModal() {
             const modal = document.getElementById('erogationModal');
             const modalContent = document.getElementById('modalContent');
@@ -1136,6 +1308,11 @@
             // Carica la pagina HTML generata nel modale
             modalContent.innerHTML = `
                 <style>
+<<<<<<< HEAD
+=======
+            
+            		
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
                     #erogationModal .loader {
                     }
 
@@ -1500,6 +1677,7 @@
 
             // Mostra il modale
             modal.classList.remove('hidden');
+<<<<<<< HEAD
         }
 
         // Funzione per chiudere il modale
@@ -1552,6 +1730,52 @@
                 closeErogationModal();
             }
         }
+=======
+
+            // Avvia l'animazione della progress bar
+            startProgressBar();
+        }
+
+		// Funzione per chiudere il modale
+		function closeErogationModal() {
+			const modal = document.getElementById('erogationModal');
+			modal.classList.add('hidden');
+		}
+
+		// Funzione per avviare la progress bar
+		function startProgressBar() {
+			const progressBar = document.querySelector('.progress');
+			progressBar.style.animation = 'progress 10s linear forwards';
+
+			// Chiudi il modale e mostra il messaggio di conferma al completamento
+			setTimeout(() => {
+				closeErogationModal();
+				showNotification('Bevanda erogata con successo!');
+			}, 7000); 
+		}
+		
+		async function handleBeverageRequest() {
+			if (!selectedBeverage || currentCredit < selectedBeverage.price) return;
+			
+			try {
+				// Verifica lo stato della macchina prima di procedere con l'erogazione
+				await checkMachineStatusBeforeDispense();
+				
+				// Apri il modale di erogazione
+				openErogationModal();
+				
+				// Pubblica il messaggio MQTT per richiedere l'erogazione
+				publishMessage(MQTT_TOPICS.BEVERAGE_REQUEST, {
+					bevandaId: selectedBeverage.id,
+					importo: selectedBeverage.price,
+					zucchero: sugarLevel,
+					timestamp: Date.now()
+				});
+			} catch (error) {
+				showAlert(`Non è possibile erogare: ${error.message}`);
+			}
+		}
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
 
         // Configurazione globale di axios per gestire gli errori di autenticazione
         axios.interceptors.response.use(

@@ -72,7 +72,11 @@ public class GestoreBevande {
     }
 
     private void inizializzaSottoscrizioni() throws MqttException {
+<<<<<<< HEAD
         String baseTopic = "macchine/" + macchinaId + "/bevande/";
+=======
+        String baseTopic = "macchine/" + idMacchina + "/bevande/";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         
         // Sottoscrizione per richieste di bevande
         mqttClient.subscribe(baseTopic + "richiesta", (topic, messaggio) -> {
@@ -80,9 +84,15 @@ public class GestoreBevande {
         });
         
         // Sottoscrizione per aggiornamento delle bevande
+<<<<<<< HEAD
         /*mqttClient.subscribe(baseTopic + "aggiorna", (topic, messaggio) -> {
             gestisciAggiornamentoBevanda(gson.fromJson(messaggio, bevande));
         });*/
+=======
+        mqttClient.subscribe(baseTopic + "aggiorna", (topic, messaggio) -> {
+            gestisciAggiornamentoBevanda(gson.fromJson(messaggio, AggiornamentoBevanda.class));
+        });
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         
         // Sottoscrizione per richieste stato delle bevande
         mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
@@ -97,7 +107,11 @@ public class GestoreBevande {
 
     private void publishAggiornamentoBevande() {
         try {
+<<<<<<< HEAD
             String topic = "macchine/" + macchinaId + "/bevande/lista/risposta";
+=======
+            String topic = "macchine/" + idMacchina + "/bevande/lista/risposta";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
 
             // Crea una mappa dettagliata con tutte le informazioni delle bevande
             Map<String, Object> dettagliAggiornamento = new HashMap<>();
@@ -159,6 +173,7 @@ public class GestoreBevande {
         }
     }
 
+<<<<<<< HEAD
     /**
      * Trova una bevanda per ID.
      * 
@@ -169,6 +184,9 @@ public class GestoreBevande {
         return Optional.ofNullable(bevande.get(bevandaId));
     }
     
+=======
+
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
     private boolean verificaDisponibilitaBevanda(Bevanda bevanda) {
         try {
             if (bevanda == null) {
@@ -196,7 +214,11 @@ public class GestoreBevande {
 
     private void pubblicaAvvisoNessunaBevandaDisponibile() {
         try {
+<<<<<<< HEAD
             String topicAvviso = "macchine/" + macchinaId + "/bevande/avviso/risposta";
+=======
+            String topicAvviso = "macchine/" + idMacchina + "/bevande/avviso/risposta";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             Map<String, Object> avviso = Map.of(
                     "tipo", "NESSUNA_BEVANDA_DISPONIBILE",
                     "messaggio", "Tutte le bevande sono momentaneamente non disponibili",
@@ -290,7 +312,11 @@ public class GestoreBevande {
 
     private void pubblicaStato(String stato) {
         try {
+<<<<<<< HEAD
             String topic = "macchine/" + macchinaId + "/bevande/stato/risposta";
+=======
+            String topic = "macchine/" + idMacchina + "/bevande/stato/risposta";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             Map<String, Object> statoErogazione = Map.of(
                     "stato", stato,
                     "timestamp", System.currentTimeMillis()
@@ -303,7 +329,11 @@ public class GestoreBevande {
 
     private void pubblicaAggiornamentoBevande() {
         try {
+<<<<<<< HEAD
             String topic = "macchine/" + macchinaId + "/bevande/lista/risposta";
+=======
+            String topic = "macchine/" + idMacchina + "/bevande/lista/risposta";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             mqttClient.publish(topic, gson.toJson(bevande));
         } catch (MqttException e) {
             System.err.println("Errore pubblicazione bevande: " + e.getMessage());
@@ -312,7 +342,11 @@ public class GestoreBevande {
 
     private void pubblicaErrore(String messaggio) {
         try {
+<<<<<<< HEAD
             String topic = "macchine/" + macchinaId + "/bevande/errore/risposta";
+=======
+            String topic = "macchine/" + idMacchina + "/bevande/errore/risposta";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             Map<String, Object> errore = Map.of(
                     "messaggio", messaggio,
                     "timestamp", System.currentTimeMillis()
@@ -328,7 +362,11 @@ public class GestoreBevande {
         Transazione transazione = new Transazione();
 
         try {
+<<<<<<< HEAD
             String topic = "macchine/" + macchinaId + "/bevande/erogazione/completata";
+=======
+            String topic = "macchine/" + idMacchina + "/bevande/erogazione/completata";
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             int idT = transazioneRepo.getLastTransactionId() + 1;
             transazione.setId(idT);
             transazione.setMacchinaId(macchinaId);

@@ -29,7 +29,12 @@ public class MacchinaPrincipale {
     private final MacchinaRepository macchinaRepository;
     private final Gson gson;
     private final AtomicBoolean inErogazione;
+<<<<<<< HEAD
     private static final Logger logger = LoggerFactory.getLogger(MacchinaPrincipale.class);
+=======
+    private long ultimaPubblicazioneStato = 0;
+    private static final long INTERVALLO_MINIMO_PUBBLICAZIONE = 5000;
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
 
     public MacchinaPrincipale(Macchina macchina) throws MqttException {
         this.id = macchina.getId();
@@ -82,7 +87,11 @@ public class MacchinaPrincipale {
             }
         });
 
+<<<<<<< HEAD
         // Richieste di stato
+=======
+     // Richieste di stato
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         clientMqtt.subscribe(topicBase + "stato/richiesta", (topic, messaggio) -> {
             pubblicaStatoMacchina();
         });
@@ -156,18 +165,36 @@ public class MacchinaPrincipale {
                 pubblicaErrore("cassa_piena", "Non c'è spazio sufficiente nella cassa");
                 return false;
             }
+<<<<<<< HEAD
             
             // Aggiorna il saldo della cassa
             gestoreCassa.processaPagamento(bevandaRichiesta.getPrezzo(), bevandaRichiesta.getId());
             
+=======
+
+            // Se tutti i controlli sono superati, procedi con l'erogazione
+            pubblicaEvento("inizio_erogazione", "Preparazione bevanda in corso");
+
+            // Simula tempo di preparazione
+            Thread.sleep(7500);
+
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             // Consuma le cialde
             gestoreCialde.consumaCialde(bevandaRichiesta.getCialde());
             
             // Simula tempo di preparazione
             Thread.sleep(7500);
 
+<<<<<<< HEAD
             // NOVITÀ: Sincronizza lo stato della macchina nel database
             sincronizzaStatoMacchina();
+=======
+            // Aggiorna il saldo della cassa
+            gestoreCassa.processaPagamento(bevandaRichiesta.getPrezzo(), bevandaRichiesta.getId());
+
+            // Completa erogazione
+            pubblicaEvento("fine_erogazione", "Bevanda pronta");
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
 
             // Pubblica aggiornamento di stato
             pubblicaStatoMacchina();
@@ -181,8 +208,12 @@ public class MacchinaPrincipale {
             inErogazione.set(false);
         }
     }
+<<<<<<< HEAD
     
     
+=======
+
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
     /**
     * Pubblica lo stato corrente della macchina sul topic MQTT appropriato.
     * Questa funzione raccoglie lo stato da tutti i componenti e lo pubblica
@@ -298,6 +329,7 @@ public class MacchinaPrincipale {
     private int estraiMacchinaIdDaTopic(String topic) {
         try {
             String[] parts = topic.split("/");
+<<<<<<< HEAD
             // Verifica che il topic abbia la struttura corretta
             if (parts.length >= 2 && parts[0].equals("macchine")) {
                 try {
@@ -312,6 +344,14 @@ public class MacchinaPrincipale {
             }
         } catch (Exception e) {
             logger.error("Errore nell'estrazione dell'ID macchina dal topic: {}", topic, e);
+=======
+            if (parts.length >= 2) {
+                return Integer.parseInt(parts[1]);
+            } else {
+                throw new IllegalArgumentException("Format del topic non valido: " + topic);
+            }
+        } catch (Exception e) {
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
             throw new IllegalArgumentException("Errore nell'estrazione dell'ID macchina dal topic: " + topic, e);
         }
     }
