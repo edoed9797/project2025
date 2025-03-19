@@ -5,7 +5,14 @@ import com.vending.ServiceRegistry;
 import com.vending.core.models.Macchina;
 import com.vending.core.models.Ricavo;
 import com.vending.core.models.Transazione;
+<<<<<<< HEAD
 import com.vending.core.repositories.MacchinaRepository;
+=======
+<<<<<<< HEAD
+import com.vending.core.repositories.MacchinaRepository;
+=======
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
 import com.vending.core.repositories.RicavoRepository;
 import com.vending.core.repositories.TransazioneRepository;
 import com.vending.iot.mqtt.MQTTClient;
@@ -105,9 +112,21 @@ public class GestoreCassa {
      * e percentualeOccupazione
      */
     public Map<String, Object> ottieniStato() {
+<<<<<<< HEAD
         double saldoAttuale = cassaAttuale;
         Map<String, Object> stato = new HashMap<>();
         stato.put("creditoAttuale", creditoAttuale);
+=======
+<<<<<<< HEAD
+        double saldoAttuale = cassaAttuale;
+        Map<String, Object> stato = new HashMap<>();
+        stato.put("creditoAttuale", creditoAttuale);
+=======
+        double saldoAttuale = cassaAttuale.get();
+        Map<String, Object> stato = new HashMap<>();
+        stato.put("creditoAttuale", creditoAttuale.get());
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
         stato.put("cassaAttuale", saldoAttuale);
         stato.put("cassaMassima", cassaMassima);
         stato.put("percentualeOccupazione", (saldoAttuale / cassaMassima) * 100);
@@ -129,9 +148,20 @@ public class GestoreCassa {
         }
 
         if (puoAccettareImporto(importo)) {
+<<<<<<< HEAD
         	 // Aggiorna il credito con arrotondamento a 2 decimali
             this.creditoAttuale = Math.round((this.creditoAttuale + importo) * 100.0) / 100.0;
             logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale, idMacchina);
+=======
+<<<<<<< HEAD
+        	 // Aggiorna il credito con arrotondamento a 2 decimali
+            this.creditoAttuale = Math.round((this.creditoAttuale + importo) * 100.0) / 100.0;
+            logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale, idMacchina);
+=======
+            creditoAttuale.updateAndGet(credito -> credito + importo);
+            logger.info("Credito aggiornato a {} per la macchina {}", creditoAttuale.get(), idMacchina);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             pubblicaStatoCredito();
             return true;
         } else {
@@ -148,6 +178,11 @@ public class GestoreCassa {
      * @param prezzo Prezzo della bevanda da acquistare
      * @param bevandaId ID della bevanda acquistata
      * @return true se il pagamento è stato processato con successo, false altrimenti
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
      */
     public boolean processaPagamento(double prezzo, int bevandaId) {
         if (prezzo <= 0) {
@@ -155,6 +190,71 @@ public class GestoreCassa {
             return false;
         }
 
+<<<<<<< HEAD
+=======
+        if (creditoAttuale.get() >= prezzo) {
+            // Aggiorna credito e cassa
+            creditoAttuale.updateAndGet(credito -> credito - prezzo);
+            cassaAttuale.updateAndGet(cassa -> cassa + prezzo);
+            
+            try {
+                // Registra la transazione nel database
+                TransazioneRepository transazioneRepo = ServiceRegistry.get(TransazioneRepository.class);
+                Transazione transazione = new Transazione();
+                transazione.setMacchinaId(idMacchina);
+                transazione.setBevandaId(bevandaId);
+                transazione.setImporto(prezzo);
+                transazione.setDataOra(LocalDateTime.now());
+                
+                // Salva la transazione nel database
+                transazione = transazioneRepo.save(transazione);
+                
+                // Pubblica aggiornamenti tramite MQTT
+                pubblicaStatoCredito();
+                pubblicaStatoCassa();
+                
+                // Pubblica conferma della transazione
+                String topicTransazione = "macchine/" + idMacchina + "/transazioni/completata";
+                Map<String, Object> messaggioTransazione = new HashMap<>();
+                messaggioTransazione.put("transazioneId", transazione.getId());
+                messaggioTransazione.put("bevandaId", bevandaId);
+                messaggioTransazione.put("importo", prezzo);
+                messaggioTransazione.put("timestamp", System.currentTimeMillis());
+                
+                mqttClient.publish(topicTransazione, gson.toJson(messaggioTransazione));
+                
+                // Verifica se la cassa è vicina al riempimento
+                if ((cassaAttuale.get() / cassaMassima) > SOGLIA_AVVISO_CASSA_PIENA) {
+                    pubblicaAvvisoCassaPiena();
+                }
+
+                logger.info("Pagamento processato con successo: {} per la macchina {}, transazione {}", 
+                          prezzo, idMacchina, transazione.getId());
+                return true;
+            } catch (Exception e) {
+                logger.error("Errore durante la registrazione della transazione: {}", e.getMessage(), e);
+                // Ripristina lo stato precedente in caso di errore
+                creditoAttuale.updateAndGet(credito -> credito + prezzo);
+                cassaAttuale.updateAndGet(cassa -> cassa - prezzo);
+                return false;
+            }
+        }
+
+        logger.warn("Credito insufficiente per il pagamento: {} < {}", creditoAttuale.get(), prezzo);
+        return false;
+    }
+    
+    /**
+     * Gestisce l'operazione di svuotamento della cassa.
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+     */
+    public boolean processaPagamento(double prezzo, int bevandaId) {
+        if (prezzo <= 0) {
+            logger.error("Tentativo di processare un pagamento con prezzo non valido: {}", prezzo);
+            return false;
+        }
+
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
         if (creditoAttuale >= prezzo) {
             // Aggiorna credito e cassa 
             this.creditoAttuale = Math.round((this.creditoAttuale - prezzo) * 100.0) / 100.0;
@@ -228,10 +328,22 @@ public class GestoreCassa {
             // Pubblica conferma di svuotamento
             pubblicaConfermaSvuotamento(importoSvuotato);
             pubblicaStatoCassa();
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             aggiornaDatabase();
             logger.info("Ricavo registrato per svuotamento cassa: {} per macchina {}", importoSvuotato, idMacchina);
             
             return importoSvuotato;
+<<<<<<< HEAD
+=======
+=======
+            
+            logger.info("Ricavo registrato per svuotamento cassa: {} per macchina {}", 
+                       importoSvuotato, idMacchina);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
         } catch (Exception e) {
             logger.error("Errore durante la registrazione del ricavo per svuotamento cassa: {}", e.getMessage());
             return 0.0;
@@ -269,6 +381,10 @@ public class GestoreCassa {
     }
     
     /**
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
      * Aggiorna lo stato della cassa nel database.
      */
     private void aggiornaDatabase() {
@@ -290,6 +406,11 @@ public class GestoreCassa {
     }
     
     /**
+<<<<<<< HEAD
+=======
+=======
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
      * Pubblica lo stato attuale della cassa sul topic MQTT appropriato.
      */
     private void pubblicaStatoCassa() {
@@ -309,11 +430,25 @@ public class GestoreCassa {
         try {
             String topic = "macchine/" + idMacchina + "/cassa/credito/risposta";
             Map<String, Object> stato = new HashMap<>();
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             stato.put("creditoAttuale", creditoAttuale);
             stato.put("timestamp", System.currentTimeMillis());
             
             mqttClient.publish(topic, gson.toJson(stato));
             logger.debug("Stato credito pubblicato: {} per macchina {}", creditoAttuale, idMacchina);
+<<<<<<< HEAD
+=======
+=======
+            stato.put("creditoAttuale", creditoAttuale.get());
+            stato.put("timestamp", System.currentTimeMillis());
+            
+            mqttClient.publish(topic, gson.toJson(stato));
+            logger.debug("Stato credito pubblicato: {} per macchina {}", creditoAttuale.get(), idMacchina);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
         } catch (Exception e) {
             logger.error("Errore pubblicazione stato credito: {}", e.getMessage(), e);
         }
@@ -328,10 +463,23 @@ public class GestoreCassa {
             Map<String, Object> avviso = new HashMap<>();
             avviso.put("guasto", false);
             avviso.put("cassa", new HashMap<String, Object>() {{
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
                 put("importo", cassaAttuale);
                 put("massimo", cassaMassima);
                 put("percentuale", (cassaAttuale / cassaMassima) * 100);
                 put("piena", (cassaAttuale / cassaMassima) > SOGLIA_AVVISO_CASSA_PIENA);
+<<<<<<< HEAD
+=======
+=======
+                put("importo", cassaAttuale.get());
+                put("massimo", cassaMassima);
+                put("percentuale", (cassaAttuale.get() / cassaMassima) * 100);
+                put("piena", (cassaAttuale.get() / cassaMassima) > SOGLIA_AVVISO_CASSA_PIENA);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             }});
             avviso.put("timestamp", System.currentTimeMillis());
             
@@ -404,7 +552,15 @@ public class GestoreCassa {
     * 
     * @return importo attuale in cassa
     */
+<<<<<<< HEAD
    public double ottieniStatoCassa() {
+=======
+<<<<<<< HEAD
+   public double ottieniStatoCassa() {
+=======
+   public AtomicReference<Double> ottieniStatoCassa() {
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
        return cassaAttuale;
    }
 
@@ -413,7 +569,15 @@ public class GestoreCassa {
     * 
     * @return credito attuale
     */
+<<<<<<< HEAD
    public double ottieniCreditoAttuale() {
+=======
+<<<<<<< HEAD
+   public double ottieniCreditoAttuale() {
+=======
+   public AtomicReference<Double> ottieniCreditoAttuale() {
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
        return creditoAttuale;
    }
 
@@ -424,7 +588,15 @@ public class GestoreCassa {
     * @return true se il credito è sufficiente
     */
    public boolean verificaCredisoSufficiente(double importo) {
+<<<<<<< HEAD
 	   double ca = creditoAttuale;
+=======
+<<<<<<< HEAD
+	   double ca = creditoAttuale;
+=======
+	   double ca = creditoAttuale.get();
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
        return ca >= importo;
    }
 
@@ -435,12 +607,27 @@ public class GestoreCassa {
     * @return true se l'operazione è avvenuta con successo
     */
    public boolean sottraiCredito(double importo) {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
 	   double ca = creditoAttuale;
        if (importo <= 0 || importo > ca) {
            return false;
        }
        
        this.creditoAttuale = Math.round((this.creditoAttuale - importo) * 100.0) / 100.0;
+<<<<<<< HEAD
+=======
+=======
+	   double ca = creditoAttuale.get();
+       if (importo <= 0 || importo > ca) {
+           return false;
+       }
+       double cfin =creditoAttuale.get().doubleValue() - importo;
+       creditoAttuale.set(cfin);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
        try {
            // Pubblica l'aggiornamento del credito
            String topic = "macchine/" + idMacchina + "/cassa/stato/risposta";
@@ -458,11 +645,26 @@ public class GestoreCassa {
     * @return true se l'operazione è avvenuta con successo
     */
    public boolean aggiungiInCassa(double importo) {
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
 	   double ca = cassaAttuale;
        if (importo <= 0 || ( ca + importo) > cassaMassima) {
            return false;
        }
        this.creditoAttuale = Math.round((this.creditoAttuale - importo) * 100.0) / 100.0;
+<<<<<<< HEAD
+=======
+=======
+	   double ca = cassaAttuale.get().doubleValue();
+       if (importo <= 0 || ( ca + importo) > cassaMassima) {
+           return false;
+       }
+       double cfin =creditoAttuale.get().doubleValue() - importo;
+       creditoAttuale.set(cfin);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
        try {
            // Pubblica l'aggiornamento dello stato cassa
            String topic = "macchine/" + idMacchina + "/cassa/stato/risposta";

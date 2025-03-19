@@ -31,6 +31,7 @@
 [2025-03-18 00:16:01] INFO - Richiesta: GET /api/istituti - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
 [2025-03-18 00:16:01] INFO - Richiesta: GET /api/admin/transazioni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
 [2025-03-18 00:17:20] INFO - Richiesta: GET /spegni - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
+<<<<<<< HEAD
 [2025-03-18 23:49:30] INFO - Richiesta: GET /favicon.ico - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
 [2025-03-18 23:49:35] INFO - Richiesta: POST /api/auth/verify - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
 [2025-03-18 23:49:35] INFO - Richiesta: GET /api/macchine - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
@@ -78,3 +79,5 @@
 [2025-03-18 23:58:05] INFO - Richiesta: POST /api/auth/anonymous - Risposta: 200 - IP: [0:0:0:0:0:0:0:1]
 [2025-03-18 23:58:05] INFO - Richiesta: GET /api/macchine - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
 [2025-03-18 23:58:05] INFO - Richiesta: GET /api/istituti - Risposta: 401 - IP: [0:0:0:0:0:0:0:1]
+=======
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6

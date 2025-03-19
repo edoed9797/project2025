@@ -153,9 +153,29 @@ public class AuthMiddleware {
      * Verifica se un path è un endpoint pubblico che non richiede autenticazione.
      */
     private boolean isPublicEndpoint(String path) {
+<<<<<<< HEAD
         // Aggiungi esplicitamente gli endpoint che devono essere pubblici
         
         for (String endpoint : PUBLIC_ENDPOINTS) {
+=======
+        // Lista degli endpoint pubblici con supporto per wildcard
+        String[] publicEndpoints = {
+                "/api/istituti",
+                "/api/istituti/*",
+                "/api/macchine",
+                "/api/macchine/*",
+                "/api/macchine/istituto/*",
+                "/api/bevande",
+                "/api/bevande/*",
+                "/api/auth/*",
+                "/api/auth/*",
+                "/pages/client/machineSelection.html",
+                "/css/*",
+                "/js/*"
+        };
+
+        for (String endpoint : publicEndpoints) {
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             if (endpoint.endsWith("/*")) {
                 String baseEndpoint = endpoint.substring(0, endpoint.length() - 2);
                 if (path.startsWith(baseEndpoint)) {

@@ -509,6 +509,7 @@ window.logout = function() {
 window.testToken = testAnonymousToken;
 
 document.addEventListener('DOMContentLoaded', () => {
+	 const token = localStorage.getItem('jwt_token');
     const manager = new MachineSelectionManager();
     
     window.addEventListener('unload', () => {

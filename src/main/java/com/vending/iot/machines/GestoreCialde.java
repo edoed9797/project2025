@@ -58,6 +58,25 @@ public class GestoreCialde {
         // Richieste di ricarica
         mqttClient.subscribe(baseTopic + "ricarica/richiesta", (topic, messaggio) -> {
             gestisciRicaricaCialde(gson.fromJson(messaggio, RichiestaCialde.class));
+<<<<<<< HEAD
+=======
+<<<<<<< HEAD
+=======
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
+        });
+        
+        // Richieste di verifica
+        mqttClient.subscribe(baseTopic + "verifica/richiesta", (topic, messaggio) -> {
+            verificaStatoCialde();
+        });
+        
+        // Richieste di stato
+        mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
+            pubblicaStatoCialde();
+<<<<<<< HEAD
+        });
+=======
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
         });
         
         // Richieste di verifica
@@ -69,6 +88,7 @@ public class GestoreCialde {
         mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
             pubblicaStatoCialde();
         });
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
     }
     
     public void inizializzaCialda(int idCialda, int quantita, int quantitaMassima) {
@@ -248,7 +268,15 @@ public class GestoreCialde {
     private void pubblicaAvvisoRicarica(int idCialda, String livelloAllarme) {
         try {
             String topic = "macchine/" + idMacchina + "/cialde/avviso/risposta";
+<<<<<<< HEAD
             QuantitaCialde info = cialde.get(idCialda);
+=======
+<<<<<<< HEAD
+            QuantitaCialde info = cialde.get(idCialda);
+=======
+            InfoCialda info = cialde.get(idCialda);
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             
             Map<String, Object> avviso = Map.of(
                 "idCialda", idCialda,
@@ -268,14 +296,43 @@ public class GestoreCialde {
     private void pubblicaStatoCialde() {
         try {
             String topic = "macchine/" + idMacchina + "/cialde/stato/risposta";
+<<<<<<< HEAD
             Map<String, Object> stato = ottieniStato();
+=======
+<<<<<<< HEAD
+            Map<String, Object> stato = ottieniStato();
+=======
+            Map<String, Object> stato = new ConcurrentHashMap<>();
+            cialde.forEach((id, info) -> stato.put(String.valueOf(id), info.toMap()));
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
             mqttClient.publish(topic, gson.toJson(stato));
         } catch (MqttException e) {
             System.err.println("Errore pubblicazione stato cialde: " + e.getMessage());
         }
     }
 
+<<<<<<< HEAD
     
+=======
+<<<<<<< HEAD
+    
+=======
+    private void pubblicaAvvisoRicarica(int idCialda) {
+        try {
+            String topic = "macchine/" + idMacchina + "/cialde/avviso/risposta";
+            Map<String, Object> avviso = Map.of(
+                "idCialda", idCialda,
+                "tipo", "ricarica_necessaria",
+                "timestamp", System.currentTimeMillis()
+            );
+            mqttClient.publish(topic, gson.toJson(avviso));
+        } catch (MqttException e) {
+            System.err.println("Errore pubblicazione avviso ricarica: " + e.getMessage());
+        }
+    }
+>>>>>>> 56a4bdcb35afaca3d0080370419ca274a4528a26
+>>>>>>> db87796c018d1cbad937929e10d85e2abf0d0ff6
 
     private void pubblicaConfermaRicarica(int idCialda) {
         try {
