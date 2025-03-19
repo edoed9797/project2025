@@ -1,11 +1,18 @@
 package com.vending.iot.machines;
 
 import com.vending.core.models.Macchina;
+import com.vending.core.models.QuantitaCialde;
+import com.vending.core.repositories.MacchinaRepository;
+import com.vending.ServiceRegistry;
 import com.vending.core.models.Bevanda;
 import com.vending.iot.mqtt.MQTTClient;
 import org.eclipse.paho.client.mqttv3.MqttException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 import com.google.gson.Gson;
 import java.util.Map;
+import java.util.Optional;
 import java.util.HashMap;
 import java.util.List;
 import java.util.ArrayList;
@@ -19,8 +26,10 @@ public class MacchinaPrincipale {
     public final GestoreCialde gestoreCialde;
     public final GestoreManutenzione gestoreManutenzione;
     private final MQTTClient clientMqtt;
+    private final MacchinaRepository macchinaRepository;
     private final Gson gson;
     private final AtomicBoolean inErogazione;
+    private static final Logger logger = LoggerFactory.getLogger(MacchinaPrincipale.class);
 
     public MacchinaPrincipale(Macchina macchina) throws MqttException {
         this.id = macchina.getId();
@@ -31,6 +40,7 @@ public class MacchinaPrincipale {
         this.gestoreBevande = new GestoreBevande(id, gestoreCassa, gestoreCialde);
         this.gestoreManutenzione = new GestoreManutenzione(id);
         this.inErogazione = new AtomicBoolean(false);
+        this.macchinaRepository = ServiceRegistry.get(MacchinaRepository.class);
 
         inizializzaMacchina(macchina);
         configuraSottoscrizioni();
@@ -46,6 +56,7 @@ public class MacchinaPrincipale {
                         cialda.getQuantitaMassima()
                 )
         );
+        
         
         // Imposta stato cassa
         gestoreCassa.impostaSaldoCassa(macchina.getCassaAttuale());
@@ -65,12 +76,17 @@ public class MacchinaPrincipale {
                 case "riavvio":
                     eseguiRiavvio();
                     break;
-                case "stato":
+                case "stato/richiesta":
                     pubblicaStatoMacchina();
                     break;
             }
         });
 
+        // Richieste di stato
+        clientMqtt.subscribe(topicBase + "stato/richiesta", (topic, messaggio) -> {
+            pubblicaStatoMacchina();
+        });
+        
         // Operazioni cliente
         clientMqtt.subscribe(topicBase + "operazioni/#", (topic, messaggio) -> {
             String operazione = topic.substring((topicBase + "operazioni/").length());
@@ -108,75 +124,102 @@ public class MacchinaPrincipale {
             }
         });
     }
-
-    public void gestisciErogazioneBevanda(int bevandaId, int livelloZucchero) {
+    
+    /**
+     * Eroga una bevanda e registra la transazione.
+     * Nota: Questo metodo si assume che le verifiche di credito e disponibilità cialde 
+     * siano già state effettuate.
+     * 
+     * @param bevandaId ID della bevanda da erogare
+     * @param livelloZucchero Livello di zucchero richiesto
+     * @return true se l'erogazione ha successo
+     */
+    
+    public boolean gestisciErogazioneBevanda(int bevandaId, int livelloZucchero) {
         try {
             // Verifica che la bevanda sia disponibile
-            List<Bevanda> bevandeDisponibili = gestoreBevande.getBevandeMacchina(id);
-            Bevanda bevandaRichiesta = null;
-
-            for (Bevanda bevanda : bevandeDisponibili) {
-                if (bevanda.getId() == bevandaId) {
-                    bevandaRichiesta = bevanda;
-                    break;
-                }
+        	Optional<Bevanda> bevandaOpt = gestoreBevande.trovaBevanda(bevandaId);
+            if (bevandaOpt.isEmpty()) {
+                logger.warn("Tentativo di erogare bevanda non disponibile: {}", bevandaId);
+                return false;
             }
-
-            if (bevandaRichiesta == null) {
-                pubblicaErrore("bevanda_non_disponibile", "Bevanda non disponibile");
-                return;
-            }
-
+            Bevanda bevandaRichiesta = bevandaOpt.get();
+            
             // Verifica che ci siano cialde sufficienti
             if (!gestoreCialde.verificaDisponibilitaCialde(bevandaRichiesta.getCialde())) {
                 pubblicaErrore("cialde_insufficienti", "Cialde insufficienti per l'erogazione");
-                return;
+                return false;
             }
 
             // Verifica che ci sia spazio sufficiente nella cassa
             if (!gestoreCassa.puoAccettareImporto(bevandaRichiesta.getPrezzo())) {
                 pubblicaErrore("cassa_piena", "Non c'è spazio sufficiente nella cassa");
-                return;
+                return false;
             }
-
-            // Se tutti i controlli sono superati, procedi con l'erogazione
-            pubblicaEvento("inizio_erogazione", "Preparazione bevanda in corso");
-
-            // Simula tempo di preparazione
-            Thread.sleep(5000);
-
+            
+            // Aggiorna il saldo della cassa
+            gestoreCassa.processaPagamento(bevandaRichiesta.getPrezzo(), bevandaRichiesta.getId());
+            
             // Consuma le cialde
             gestoreCialde.consumaCialde(bevandaRichiesta.getCialde());
+            
+            // Simula tempo di preparazione
+            Thread.sleep(7500);
 
-            // Aggiorna il saldo della cassa
-            gestoreCassa.processaPagamento(bevandaRichiesta.getPrezzo());
+            // NOVITÀ: Sincronizza lo stato della macchina nel database
+            sincronizzaStatoMacchina();
 
-            // Completa erogazione
-            pubblicaEvento("fine_erogazione", "Bevanda pronta");
-
+            // Pubblica aggiornamento di stato
+            pubblicaStatoMacchina();
+            
+            logger.info("Erogazione bevanda {} completata con successo nella macchina {}", bevandaId, id);
+            return true;
         } catch (Exception e) {
             pubblicaErrore("errore_erogazione", "Errore durante l'erogazione: " + e.getMessage());
+            return false;
         } finally {
             inErogazione.set(false);
         }
     }
-
+    
+    
+    /**
+    * Pubblica lo stato corrente della macchina sul topic MQTT appropriato.
+    * Questa funzione raccoglie lo stato da tutti i componenti e lo pubblica
+    * come risposta su un topic specifico.
+    */
     public void pubblicaStatoMacchina() {
-        try {
-            Map<String, Object> stato = new HashMap<>();
-            stato.put("id", id);
-            stato.put("statoCassa", gestoreCassa.ottieniStato());
-            stato.put("statoBevande", gestoreBevande.ottieniStato());
-            stato.put("statoCialde", gestoreCialde.ottieniStato());
-            stato.put("statoManutenzione", gestoreManutenzione.ottieniStato());
-            stato.put("inErogazione", inErogazione.get());
-
-            clientMqtt.publish("macchine/" + id + "/stato", gson.toJson(stato));
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
-    }
-
+	    try {
+	        // Raccogli lo stato completo della macchina
+	        Map<String, Object> statoCompletaMacchina = new HashMap<>();
+	        
+	        // Aggiungi informazioni di base della macchina
+	        statoCompletaMacchina.put("id", id);
+	        statoCompletaMacchina.put("timestamp", System.currentTimeMillis());
+	        statoCompletaMacchina.put("inErogazione", inErogazione.get());
+	        
+	        // Aggiungi lo stato dei componenti
+	        statoCompletaMacchina.put("cassa", gestoreCassa.ottieniStato());
+	        statoCompletaMacchina.put("bevande", gestoreBevande.ottieniStato());
+	        statoCompletaMacchina.put("cialde", gestoreCialde.ottieniStato());
+	        statoCompletaMacchina.put("manutenzione", gestoreManutenzione.ottieniStato());
+	        
+	        // Converti lo stato in JSON
+	        String statoJson = gson.toJson(statoCompletaMacchina);
+	        
+	        // Pubblica sul topic specifico per le risposte di stato
+	        String topic = "macchine/" + id + "/stato/risposta";
+	        clientMqtt.publish(topic, statoJson);
+	        
+	        // Log dell'operazione (usa il logger se disponibile)
+	        System.out.println("Stato macchina " + id + " pubblicato");
+	    } catch (Exception e) {
+	        // Log dell'errore
+	        System.err.println("Errore durante la pubblicazione dello stato della macchina " + 
+	                    id + ": " + e.getMessage());
+	        e.printStackTrace();
+	    }
+	}
     private void pubblicaEvento(String tipo, String messaggio) {
         try {
             Map<String, Object> evento = Map.of(
@@ -185,18 +228,95 @@ public class MacchinaPrincipale {
                     "timestamp", System.currentTimeMillis()
             );
 
-            clientMqtt.publish("macchine/" + id + "/eventi", gson.toJson(evento));
+            clientMqtt.publish("macchine/" + id + "/eventi/notifica", gson.toJson(evento));
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
+    
+    /**
+     * Sincronizza lo stato della macchina con il database dopo modifiche.
+     * Questo metodo aggiorna i dati della macchina nel database in base allo stato
+     * corrente memorizzato nei gestori.
+     */
+    private void sincronizzaStatoMacchina() {
+        try {
+            // Recupera lo stato attuale dal database
+            Macchina macchinaDB = macchinaRepository.findById(id);
+            if (macchinaDB == null) {
+                logger.error("Impossibile sincronizzare stato: macchina {} non trovata nel database", id);
+                return;
+            }
+
+            // Aggiorna lo stato della cassa
+            Map<String, Object> statoCassa = gestoreCassa.ottieniStato();
+            macchinaDB.setCreditoAttuale((Double) statoCassa.get("creditoAttuale"));
+            macchinaDB.setCassaAttuale((Double) statoCassa.get("cassaAttuale"));
+
+            // Aggiorna le quantità delle cialde
+            List<QuantitaCialde> cialdeDB = macchinaDB.getCialde();
+            Map<String, Object> statoCialde = gestoreCialde.ottieniStato();
+            
+            // Il formato esatto dipende dall'implementazione di gestoreCialde.ottieniStato()
+            // Assumiamo che restituisca una mappa con le quantità di cialde
+            @SuppressWarnings("unchecked")
+            Map<Integer, Integer> quantitaCialde = (Map<Integer, Integer>) statoCialde.get("quantita");
+            
+            if (quantitaCialde != null) {
+                for (QuantitaCialde cialda : cialdeDB) {
+                    Integer nuovaQuantita = quantitaCialde.get(cialda.getCialdaId());
+                    if (nuovaQuantita != null) {
+                        cialda.setQuantita(nuovaQuantita);
+                    }
+                }
+            }
+
+            // Aggiorna la macchina nel database
+            macchinaRepository.update(macchinaDB);
+            
+            logger.info("Aggionamento stato della macchina #{} effettuato con successo", id);
+        } catch (Exception e) {
+            logger.error("Errore durante la sincronizzazione dello stato della macchina {}: {}", 
+                        id, e.getMessage(), e);
+        }
+    }
 
     private void pubblicaErrore(String codice, String messaggio) {
-        pubblicaEvento("errore", Map.of(
-                "codice", codice,
-                "messaggio", messaggio
-        ).toString());
+        try {
+            Map<String, Object> errore = Map.of(
+                    "codice", codice, 
+                    "messaggio", messaggio,
+                    "timestamp", System.currentTimeMillis()
+            );
+            
+            clientMqtt.publish("macchine/" + id + "/errori/notifica", gson.toJson(errore));
+        } catch (Exception e) {
+            e.printStackTrace(); 
+        }
     }
+    
+    private int estraiMacchinaIdDaTopic(String topic) {
+        try {
+            String[] parts = topic.split("/");
+            // Verifica che il topic abbia la struttura corretta
+            if (parts.length >= 2 && parts[0].equals("macchine")) {
+                try {
+                    return Integer.parseInt(parts[1]);
+                } catch (NumberFormatException e) {
+                    logger.error("ID macchina non numerico nel topic: {}", parts[1]);
+                    throw new IllegalArgumentException("ID macchina non numerico: " + parts[1]);
+                }
+            } else {
+                logger.error("Formato del topic non valido: {}", topic);
+                throw new IllegalArgumentException("Formato del topic non valido: " + topic);
+            }
+        } catch (Exception e) {
+            logger.error("Errore nell'estrazione dell'ID macchina dal topic: {}", topic, e);
+            throw new IllegalArgumentException("Errore nell'estrazione dell'ID macchina dal topic: " + topic, e);
+        }
+    }
+    
+    
 
     public void eseguiSpegnimento() {
         try {

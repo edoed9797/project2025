@@ -1,21 +1,19 @@
-
-
 import Utils from '../common/utils.js';
 
 class MachineSelectionManager {
     constructor() {
         this.elements = {
-            searchInput: document.getElementById('searchMachine'),
-            filterButtons: document.querySelectorAll('.filter-btn'),
             machinesList: document.getElementById('machinesList'),
-            statusIndicator: document.getElementById('statusIndicator'),
-            institutesList: document.getElementById('institutesList')
+            institutesList: document.getElementById('institutesList'),
+            userInfo: document.getElementById('userInfo'),
+            logoutButton: document.querySelector('button[onclick="logout()"]')
         };
 
         this.state = {
             machines: new Map(),
             institutes: new Map(),
-            currentFilter: 'all'
+            isAuthenticated: false,
+            token: null
         };
 
         this.initialize();
@@ -24,141 +22,317 @@ class MachineSelectionManager {
     async initialize() {
         try {
             Utils.toggleLoading(true);
-            await this.ensureAuthToken();
-
-            // Carica prima gli istituti, poi le macchine
-            await this.loadInstitutes();
-            await this.loadMachines();
-
-            // Renderizza le macchine e gli istituti
+            
+            // Verifica l'autenticazione e ottieni un token valido
+            await this.checkAuthentication();
+            
+            // Aggiorna l'interfaccia utente in base allo stato di autenticazione
+            this.updateUI();
+            
+            // Carica i dati
+            await Promise.all([
+                this.loadInstitutes(),
+                this.loadMachines()
+            ]);
+            
+            // Renderizza i dati
             this.renderMachines();
             this.renderInstitutes();
+            
         } catch (error) {
             console.error('Initialization error:', error);
-            Utils.showToast('Error during initialization. Please try again.', 'error');
+            Utils.showToast('Errore durante l\'inizializzazione. Riprova.', 'error');
+            
+            // Mostra contenuti vuoti
+            this.renderEmptyState();
         } finally {
             Utils.toggleLoading(false);
         }
     }
 
-    async ensureAuthToken() {
-        let token = localStorage.getItem('jwt_token');
-        if (!token) {
-            token = this.generateAnonymousToken();
-            localStorage.setItem('jwt_token', token);
-            localStorage.setItem('userRole', 'anonymous');
+    renderEmptyState() {
+        // Mostra un messaggio quando non ci sono dati
+        if (this.elements.machinesList) {
+            this.elements.machinesList.innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Impossibile caricare i distributori. Riprova più tardi.</p>
+                </div>
+            `;
         }
-        return token;
+        
+        if (this.elements.institutesList) {
+            this.elements.institutesList.innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-exclamation-circle"></i>
+                    <p>Impossibile caricare gli istituti. Riprova più tardi.</p>
+                </div>
+            `;
+        }
     }
 
-    generateAnonymousToken() {
-        const random = Math.random().toString(36).substring(2);
-        const timestamp = Date.now().toString(36);
-        return `anonymous_${random}_${timestamp}`;
-    }
-
-    async loadMachines() {
-        try {
-            const response = await fetch('/api/macchine', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await this.ensureAuthToken()}`
-                }
-            });
-            
-            if (!response.ok) {
-                localStorage.removeItem('jwt_token');
-                const newToken = await this.ensureAuthToken();
-                
-                const retryResponse = await fetch('/api/macchine', {
-                    method: 'GET',
+    async checkAuthentication() {
+        // Controlla se esiste già un token
+        let token = localStorage.getItem('jwt_token');
+        
+        if (token) {
+            // Verifica che il token esistente sia valido
+            try {
+                const response = await fetch('/api/auth/verify', {
+                    method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'Authorization': `Bearer ${newToken}`
+                        'Authorization': `Bearer ${token}`
                     }
                 });
                 
-                if (!retryResponse.ok) {
-                    throw new Error(`HTTP error! status: ${retryResponse.status}`);
+                if (response.ok) {
+                    this.state.isAuthenticated = true;
+                    this.state.token = token;
+                    return token;
                 }
-                
-                const machines = await retryResponse.json();
-                machines.forEach(machine => {
-                    this.state.machines.set(machine.id, machine);
-                });
+            } catch (error) {
+                console.warn('Token esistente non valido');
+                localStorage.removeItem('jwt_token');
+            }
+        }
+        
+        // Se non c'è token o non è valido, richiedi un token anonimo
+        return this.getAnonymousToken();
+    }
+
+    async getAnonymousToken() {
+    try {
+        const response = await fetch('/api/auth/anonymous', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const data = await response.json();
+        
+        // CORREZIONE: Il token è in data.jwt_token, non in data.token
+        const token = data.jwt_token;
+        
+        if (!token) {
+            console.error("Token non trovato nella risposta:", data);
+            throw new Error("Token non trovato nella risposta del server");
+        }
+        
+        // Salva il token anonimo
+        localStorage.setItem('jwt_token', token);
+        localStorage.setItem('userRole', 'anonymous');
+        
+        this.state.isAuthenticated = false;
+        this.state.token = token; // Salva il token nello state
+        
+        console.log("Token salvato nello stato:", this.state.token);
+        return token;
+        
+    } catch (error) {
+        console.error('Errore durante la richiesta del token anonimo:', error);
+        Utils.showToast('Errore di connessione al server', 'error');
+        throw error;
+    }
+    }
+
+    updateUI() {
+        // Aggiorna l'UI in base allo stato di autenticazione
+        if (this.elements.userInfo) {
+            if (this.state.isAuthenticated) {
+                const username = localStorage.getItem('username') || 'Utente';
+                this.elements.userInfo.textContent = `Benvenuto, ${username}`;
             } else {
-                const machines = await response.json();
-                machines.forEach(machine => {
-                    this.state.machines.set(machine.id, machine);
-                });
+                this.elements.userInfo.textContent = 'Visitatore';
             }
-            
-        } catch (error) {
-            console.error('Failed to load machines:', error);
-            Utils.showToast('Error loading machines', 'error');
+        }
+        
+        // Aggiorna il pulsante di logout
+        if (this.elements.logoutButton) {
+            if (this.state.isAuthenticated) {
+                this.elements.logoutButton.textContent = 'Logout';
+                this.elements.logoutButton.onclick = () => this.logout();
+            } else {
+                this.elements.logoutButton.textContent = 'Login';
+                this.elements.logoutButton.onclick = () => this.redirectToLogin();
+            }
         }
     }
 
-    async loadInstitutes() {
-        try {
-            const response = await fetch('/api/istituti', {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${await this.ensureAuthToken()}`
+    logout() {
+        localStorage.removeItem('jwt_token');
+        localStorage.removeItem('username');
+        localStorage.removeItem('userRole');
+        window.location.href = '/index.html';
+    }
+
+    redirectToLogin() {
+        window.location.href = '/index.html';
+    }
+
+    async loadMachines() {
+    try {
+        // Assicurati di usare il token corretto
+        const token = localStorage.getItem('jwt_token');
+        console.log("Usando token per richiesta macchine:", token);
+        
+        const response = await fetch('/api/macchine', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            // Se il token non è valido, richiedi un nuovo token anonimo
+            if (response.status === 401) {
+                console.warn("Token non valido per macchine, richiedo un nuovo token");
+                const newToken = await this.getAnonymousToken();
+                return this.retryLoadMachines(newToken);
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const machines = await response.json();
+        machines.forEach(machine => {
+            this.state.machines.set(machine.id, machine);
+        });
+        
+    } catch (error) {
+        console.error('Failed to load machines:', error);
+        Utils.showToast('Errore nel caricamento delle macchine', 'error');
+        throw error;
+    }
+}
+
+
+    async retryLoadMachines(token) {
+    try {
+        console.log("Ritentativo caricamento macchine con nuovo token:", token);
+        
+        const response = await fetch('/api/macchine', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        // Anche se lo status è 401, prova a leggere i dati se ci sono
+        const responseText = await response.text();
+        console.log("Risposta macchine:", response.status, responseText);
+        
+        if (responseText && responseText.length > 0) {
+            try {
+                // Prova a fare il parsing della risposta come JSON
+                const machines = JSON.parse(responseText);
+                if (Array.isArray(machines)) {
+                    machines.forEach(machine => {
+                        this.state.machines.set(machine.id, machine);
+                    });
+                    return; // Se il parsing ha avuto successo, esci dal metodo
                 }
-            });
-
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            } catch (parseError) {
+                console.error("Errore parsing JSON:", parseError);
             }
-
-            const institutes = await response.json();
-            institutes.forEach(institute => {
-                this.state.institutes.set(institute.ID_istituto, institute);
-            });
-
-        } catch (error) {
-            console.error('Failed to load institutes:', error);
-            Utils.showToast('Error loading institutes', 'error');
         }
-    }
-
-    updateMachineStatus(machineId, status) {
-        const machine = this.state.machines.get(machineId);
-        if (!machine) return;
-
-        machine.statoDescrizione = status.statoDescrizione;
-        this.updateMachineUI(machine);
-    }
-
-    updateMachineUI(machine) {
-        const card = document.getElementById(`machine-${machine.id}`);
-        if (!card) return;
-
-        const status = this.getMachineStatus(machine.statoDescrizione);
         
-        // Aggiorna il pallino dello stato
-        card.querySelector('.status-badge')
-            .className = `status-badge ${status.class}`;
-        
-        // Aggiorna il testo dello stato
-        card.querySelector('.status-text').textContent = status.text;
-
-        // Aggiorna il pulsante
-        const button = card.querySelector('.btn-select');
-        if (machine.statoDescrizione === 'Attiva') {
-            button.removeAttribute('disabled');
-            button.textContent = 'Seleziona';
-        } else {
-            button.setAttribute('disabled', 'disabled');
-            button.textContent = 'Non disponibile';
+        // Se arriviamo qui, c'è stato un errore nel parsing o non ci sono dati
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
+    } catch (error) {
+        console.error('Failed to load machines after retry:', error);
+        Utils.showToast('Errore nel caricamento delle macchine', 'error');
+        throw error;
     }
+}
+    async loadInstitutes() {
+    try {
+        // Assicurati di usare il token corretto
+        const token = this.state.token || localStorage.getItem('jwt_token');
+        console.log("Usando token per richiesta istituti:", token);
+        
+        const response = await fetch('/api/istituti', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
 
-    renderMachines(machines = Array.from(this.state.machines.values())) {
+        if (!response.ok) {
+            // Se il token non è valido, richiedi un nuovo token anonimo
+            if (response.status === 401) {
+                console.warn("Token non valido per istituti, richiedo un nuovo token");
+                const newToken = await this.getAnonymousToken();
+                return this.retryLoadInstitutes(newToken);
+            }
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        const institutes = await response.json();
+        institutes.forEach(institute => {
+            this.state.institutes.set(institute.ID_istituto, institute);
+        });
+
+    } catch (error) {
+        console.error('Failed to load institutes:', error);
+        Utils.showToast('Errore nel caricamento degli istituti', 'error');
+        throw error;
+    }
+}
+
+    async retryLoadInstitutes(token) {
+    try {
+        console.log("Ritentativo caricamento istituti con nuovo token:", token);
+        
+        const response = await fetch('/api/istituti', {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${token}`
+            }
+        });
+        
+        if (!response.ok) {
+            const errorText = await response.text();
+            console.error("Risposta errore:", errorText);
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const institutes = await response.json();
+        institutes.forEach(institute => {
+            this.state.institutes.set(institute.ID_istituto, institute);
+        });
+        
+    } catch (error) {
+        console.error('Failed to load institutes after retry:', error);
+        Utils.showToast('Errore nel caricamento degli istituti', 'error');
+        throw error;
+    }
+}
+
+    renderMachines() {
         if (!this.elements.machinesList) return;
+
+        const machines = Array.from(this.state.machines.values());
+        
+        if (machines.length === 0) {
+            this.elements.machinesList.innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Nessun distributore disponibile al momento</p>
+                </div>
+            `;
+            return;
+        }
 
         this.elements.machinesList.innerHTML = machines
             .map(machine => {
@@ -176,13 +350,13 @@ class MachineSelectionManager {
         const instituteAddress = institute ? institute.indirizzo : 'N/A';
 
         return `
-            <div id="machine-${machine.id}" class="machine-card">
+            <div id="machine-${machine.id}" class="machine-card" role="listitem" aria-label="Distributore ${machine.id}">
                 <div class="card-header">
                     <h3>Distributore #${machine.id}</h3>
-                    <span class="status-badge ${status.class}"></span>
+                    <span class="status-badge ${status.class}" title="${status.text}" aria-hidden="true"></span>
                 </div>
                 <div class="card-body">
-                    <p class="institute"><i class="fas fa-building"></i> ${instituteName}</p>
+                    <p class="institute"><i class="fas fa-building" aria-hidden="true"></i> ${instituteName}</p>
                     <p class="status-text">${status.text}</p>
                     <p class="address"><i class="fa fa-map-marker" aria-hidden="true"></i> ${instituteAddress}</p>
                     ${machine.statoDescrizione === 'Attiva' ? `
@@ -190,7 +364,7 @@ class MachineSelectionManager {
                             Seleziona
                         </button>
                     ` : `
-                        <button disabled>
+                        <button class="btn-disabled" disabled>
                             Non disponibile
                         </button>
                     `}
@@ -213,7 +387,19 @@ class MachineSelectionManager {
             return;
         }
 
-        this.elements.institutesList.innerHTML = Array.from(this.state.institutes.values())
+        const institutes = Array.from(this.state.institutes.values());
+        
+        if (institutes.length === 0) {
+            this.elements.institutesList.innerHTML = `
+                <div class="no-results">
+                    <i class="fas fa-info-circle"></i>
+                    <p>Nessun istituto disponibile al momento</p>
+                </div>
+            `;
+            return;
+        }
+
+        this.elements.institutesList.innerHTML = institutes
             .map(institute => this.renderInstituteCard(institute))
             .join('');
     }
@@ -224,21 +410,24 @@ class MachineSelectionManager {
             .length;
 
         return `
-            <div class="institute-card">
+            <div class="institute-card" role="listitem" aria-label="Istituto ${institute.nome}">
                 <div class="card-header">
                     <h3>${institute.nome}</h3>
                 </div>
                 <div class="card-body">
                     <p class="address"><i class="fa fa-map-marker" aria-hidden="true"></i> ${institute.indirizzo}</p>
-                    <p class="machines-count"><i class="fas fa-coffee"></i> Macchine disponibili: ${machinesCount}</p>
+                    <p class="machines-count"><i class="fas fa-coffee" aria-hidden="true"></i> Macchine disponibili: ${machinesCount}</p>
                 </div>
             </div>
         `;
     }
 
     selectMachine(machineId) {
-        const machine = this.state.machines.get(machineId);
-        if (!machine || machine.statoDescrizione !== 'Attiva') return;
+        const machine = this.state.machines.get(parseInt(machineId));
+        if (!machine || machine.statoDescrizione !== 'Attiva') {
+            Utils.showToast('Questa macchina non è disponibile', 'warning');
+            return;
+        }
 
         sessionStorage.setItem('selectedMachine', machineId);
         window.location.href = `/pages/client/beverageInterface.html?machine=${machineId}`;
@@ -265,14 +454,68 @@ class MachineSelectionManager {
             text: 'Stato Sconosciuto'
         };
     }
+
+    destroy() {
+        // Pulisci eventuali event listener o risorse
+        console.log('MachineSelectionManager destroyed');
+    }
 }
+
+// Funzione di debug per testare il token anonimo
+async function testAnonymousToken() {
+    try {
+        const response = await fetch('/api/auth/anonymous', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            }
+        });
+        
+        if (!response.ok) {
+            console.error("Errore nella richiesta:", response.status);
+            return;
+        }
+        
+        const data = await response.json();
+        console.log("Token ricevuto:", data);
+        
+        // Test API macchine
+        const machinesResponse = await fetch('/api/macchine', {
+            headers: {
+                'Authorization': `Bearer ${data.token}`
+            }
+        });
+        
+        console.log("Stato risposta macchine:", machinesResponse.status);
+        if (machinesResponse.ok) {
+            console.log("Macchine:", await machinesResponse.json());
+        } else {
+            console.error("Errore risposta:", await machinesResponse.text());
+        }
+    } catch (error) {
+        console.error("Errore test:", error);
+    }
+}
+
+// Funzioni globali
+window.logout = function() {
+    localStorage.removeItem('jwt_token');
+    localStorage.removeItem('username');
+    localStorage.removeItem('user_name');
+    localStorage.removeItem('user_role');
+    window.location.href = '/index.html';
+};
+
+window.testToken = testAnonymousToken;
+
 document.addEventListener('DOMContentLoaded', () => {
     const manager = new MachineSelectionManager();
-
+    
     window.addEventListener('unload', () => {
         manager.destroy();
     });
-
+    
+    // Esponi la funzione selectMachine globalmente
     window.selectMachine = (id) => manager.selectMachine(id);
 });
 

@@ -7,7 +7,7 @@
 class Utils {
     // Configurazione base
     static API_BASE_URL = '/api';
-    static TOKEN_KEY = 'auth_token';
+    static TOKEN_KEY = 'jwt_token';
     static REFRESH_TOKEN_KEY = 'refresh_token';
 
     /**
@@ -32,7 +32,6 @@ class Utils {
 
             // Aggiunge il token di autenticazione se presente
             const token = this.getToken();
-            console.log(token);
             if (token) {
                 defaultOptions.headers['Authorization'] = `Bearer ${token}`;
             }

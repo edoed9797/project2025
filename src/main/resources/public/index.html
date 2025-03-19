@@ -64,7 +64,7 @@
                             <div class="card-icon">
                                 <i class="fas fa-coffee"></i>
                             </div>
-                            <h3>Acquista Bevande</h3>
+                            <h3>Acquista<br>Bevande</h3>
                             <p>Seleziona un distributore e acquista le tue bevande preferite</p>
                             <a href="/pages/client/machineSelection.html" class="btn btn-primary">
                                 Inizia
@@ -207,15 +207,15 @@
 
         // Verifica token all'avvio
         async function checkTokenAndUpdate() {
-            if (auth.isAuthenticated()) {
-                try {
-                    await auth.refreshToken();
-                } catch (error) {
-                    console.error('Errore refresh token:', error);
-                }
-            }
-            updateUI();
-        }
+           try {
+        		const isAuth = auth.isAuthenticated();
+        		updateUI(isAuth);
+    		} catch (error) {
+        		console.error('Authentication check failed:', error);
+        		// Assicurati che l'UI mostri lo stato non autenticato
+        		updateUI(false);
+    		}
+		}
 
         // Aggiorna UI al caricamento
         document.addEventListener('DOMContentLoaded', checkTokenAndUpdate);

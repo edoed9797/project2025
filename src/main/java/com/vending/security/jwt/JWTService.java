@@ -18,13 +18,14 @@ import java.util.Map;
 public class JWTService {
     private static final Logger logger = LoggerFactory.getLogger(JWTService.class);
     private final Algorithm algorithm;
-    private static final Algorithm algo = Algorithm.HMAC256("Pissir2025!");
+    private static final String SECRET = "Pissir2025!";
+    private static final Algorithm algo = Algorithm.HMAC256(SECRET);
 
     /**
      * Costruttore che inizializza l'algoritmo di firma JWT usando la chiave segreta configurata.
      */
     public JWTService() {
-        this.algorithm = Algorithm.HMAC256(SecurityConfig.JWT_SECRET);
+        this.algorithm = algo;
     }
 
     /**
@@ -34,31 +35,25 @@ public class JWTService {
      * @return il token JWT generato
      */
     public String generaToken(Utente utente) {
-        try {
-            return JWT.create()
-                    .withSubject(String.valueOf(utente.getId()))
-                    .withClaim("username", utente.getUsername())
-                    .withClaim("roleKey", utente.getRuolo())
-                    .withIssuedAt(new Date())
-                    .withExpiresAt(new Date(System.currentTimeMillis() + SecurityConfig.JWT_EXPIRATION))
-                    .sign(algorithm);
-        } catch (Exception e) {
-            logger.error("Errore durante la generazione del token JWT", e);
-            throw new RuntimeException("Impossibile generare il token JWT", e);
-        }
+        return JWT.create()
+                .withSubject(String.valueOf(utente.getId()))
+                .withClaim("username", utente.getUsername())
+                .withClaim("roleKey", utente.getRuolo())
+                .withIssuedAt(new Date())
+                .withExpiresAt(new Date(System.currentTimeMillis() + SecurityConfig.JWT_EXPIRATION))
+                .sign(algo); // Usa l'algoritmo statico
     }
     
+
     public static String generateAnonymousToken(Map<String, Object> tokenData) {
-    	int randomNum = (int) (200 * Math.random() * 1000); 
-    	
         try {
             return JWT.create()
-                .withSubject(Integer.toString(randomNum))
-                .withClaim("username", "cliente_" + randomNum)
+                .withSubject("anonymous")
+                .withClaim("username", "anonymous_user")
                 .withClaim("roleKey", "anonymous")
                 .withIssuedAt(new Date())
-                .withExpiresAt(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000))) // 24 hours
-                .sign(algo);
+                .withExpiresAt(new Date(System.currentTimeMillis() + (24 * 60 * 60 * 1000)))
+                .sign(algo); // Usa l'algoritmo statico
         } catch (Exception e) {
             throw new RuntimeException("Error generating anonymous JWT token", e);
         }
@@ -71,11 +66,13 @@ public class JWTService {
      * @return true se il token è valido, false altrimenti
      */
     public boolean verificaToken(String token) {
-        if (token == null || token.isEmpty()) {
-            return false;
-        }
-        
-        try {
+    	try {
+            // Verifica se è un token anonimo (inizia con "anonymous_")
+            if (token.startsWith("anonymous_")) {
+                return true; // Considera valido il token anonimo
+            }
+            
+            // Normale verifica per i token autenticati
             JWT.require(algorithm)
                .build()
                .verify(token);

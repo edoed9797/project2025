@@ -1,12 +1,19 @@
 package com.vending.core.services;
 
+import com.google.gson.Gson;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import com.google.gson.JsonElement;
 
 import com.google.gson.JsonObject;
 import com.google.gson.JsonParser;
 import com.google.gson.JsonSyntaxException;
+import com.vending.Main;
+import com.vending.ServiceRegistry;
 import com.vending.core.models.*;
 import com.vending.core.repositories.*;
+import com.vending.iot.mqtt.MQTTClient;
+
 import java.time.LocalDateTime;
 import java.util.HashMap;
 import java.util.List;
@@ -20,6 +27,7 @@ import java.util.stream.Collectors;
  * integrando i dati delle macchine e dei tecnici assegnati.
  */
 public class ManutenzioneService {
+	private static final Logger logger = LoggerFactory.getLogger(Main.class);
     private final ManutenzioneRepository manutenzioneRepository;
     private final MacchinaRepository macchinaRepository;
     private final TransazioneRepository transazioneRepository;
@@ -110,6 +118,63 @@ public class ManutenzioneService {
             throw new RuntimeException("Errore nel recupero dello stato manutenzione", e);
         }
     }
+    
+    /**
+     * Notifica l'assegnazione di un tecnico ad una macchina per manutenzione.
+     *
+     * @param macchinaId ID della macchina
+     * @param tecnicoId ID del tecnico assegnato
+     * @param tipoIntervento Tipo di intervento
+     * @param manutenzioneId ID della manutenzione
+     */
+    public void notificaAssegnazioneTecnico(int macchinaId, int tecnicoId, String tipoIntervento, int manutenzioneId) {
+        try {
+            MQTTClient mqttClient = ServiceRegistry.get(MQTTClient.class);
+            Gson gson = ServiceRegistry.get(Gson.class);
+            
+            // Componi il messaggio da inviare
+            Map<String, Object> messaggio = new HashMap<>();
+            messaggio.put("manutenzioneId", manutenzioneId);
+            messaggio.put("tecnicoId", tecnicoId);
+            messaggio.put("tipoIntervento", tipoIntervento);
+            messaggio.put("timestamp", System.currentTimeMillis());
+            
+            // Pubblica sul topic specifico
+            String topic = "macchine/" + macchinaId + "/manutenzione/tecnico/assegnato";
+            mqttClient.publish(topic, gson.toJson(messaggio));
+            
+            logger.info("Notifica assegnazione tecnico {} inviata alla macchina {} per {}", 
+                       tecnicoId, macchinaId, tipoIntervento);
+        } catch (Exception e) {
+            logger.error("Errore nell'invio della notifica assegnazione tecnico: {}", e.getMessage(), e);
+        }
+    }
+
+    /**
+     * Notifica il completamento di una manutenzione alla macchina.
+     *
+     * @param macchinaId ID della macchina
+     * @param manutenzioneId ID della manutenzione completata
+     */
+    public void notificaCompletamentoManutenzione(int macchinaId, int manutenzioneId) {
+        try {
+            MQTTClient mqttClient = ServiceRegistry.get(MQTTClient.class);
+            Gson gson = ServiceRegistry.get(Gson.class);
+            
+            Map<String, Object> messaggio = new HashMap<>();
+            messaggio.put("manutenzioneId", manutenzioneId);
+            messaggio.put("completata", true);
+            messaggio.put("timestamp", System.currentTimeMillis());
+            
+            String topic = "macchine/" + macchinaId + "/manutenzione/completamento";
+            mqttClient.publish(topic, gson.toJson(messaggio));
+            
+            logger.info("Notifica completamento manutenzione {} inviata alla macchina {}", 
+                       manutenzioneId, macchinaId);
+        } catch (Exception e) {
+            logger.error("Errore nell'invio della notifica completamento: {}", e.getMessage(), e);
+        }
+    }
 
     /**
      * Avvia una nuova manutenzione per una macchina.
@@ -133,7 +198,7 @@ public class ManutenzioneService {
             
             macchina.setStatoId(2); // In manutenzione
             macchinaRepository.update(macchina);
-            
+            notificaAssegnazioneTecnico(macchinaId, tecnicoId, tipoIntervento, manutenzione.getId());
             return manutenzioneRepository.save(manutenzione);
         } catch (IllegalArgumentException e) {
             throw e;
@@ -177,7 +242,7 @@ public class ManutenzioneService {
                 macchina.setStatoId(1); // Attiva
                 macchinaRepository.update(macchina);
             }
-
+            notificaCompletamentoManutenzione(manutenzione.getMacchinaId(), manutenzioneId);
             return manutenzioneCompletata;
         } catch (IllegalArgumentException | IllegalStateException e) {
             throw e;

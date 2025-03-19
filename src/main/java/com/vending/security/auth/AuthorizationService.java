@@ -46,6 +46,13 @@ public class AuthorizationService {
             "VIEW_MACHINE_STATUS",
             "SEND_TECHNICIAN"
         ));
+        
+        // Permessi per utenti anonimi
+        ROLE_PERMISSIONS.put("ANONYMOUS", Arrays.asList(
+            "VIEW_SCHOOLS",
+            "VIEW_MACHINES",
+            "VIEW_BEVERAGES"
+        ));
     }
 
     /**

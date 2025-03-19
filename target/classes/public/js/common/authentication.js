@@ -59,25 +59,46 @@ class AuthenticationService {
     getUserName() {
         return localStorage.getItem(this.userNameKey);
     }
-
+    
+    
+    
     /**
      * Verifies if user is authenticated
      * @returns {boolean}
      */
     isAuthenticated() {
-        const token = this.getToken();
+        const token = localStorage.getItem('jwt_token');
         if (!token) return false;
         
-        try {
-            // Verifica semplice della scadenza del token JWT
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const expirationTime = payload.exp * 1000; // Converti in millisecondi
-            return Date.now() < expirationTime;
-        } catch (e) {
-            console.error('Token validation error:', e);
+        // Verifica che il token abbia il formato corretto (tre parti separate da punti)
+	    if (!token.match(/^[A-Za-z0-9-_]+\.[A-Za-z0-9-_]+\.[A-Za-z0-9-_]*$/)) {
+	        console.log('Token format is invalid');
+	        localStorage.removeItem('jwt_token'); // Rimuovi il token non valido
+	        return false;
+	    }
+         try {
+        // Divide il token nelle sue parti
+        const parts = token.split('.');
+        
+        // Decodifica l'header e il payload
+        const header = JSON.parse(atob(parts[0]));
+        const payload = JSON.parse(atob(parts[1]));
+        
+        // Verifica la scadenza del token
+        const now = Math.floor(Date.now() / 1000);
+        if (payload.exp && payload.exp < now) {
+            console.log('Token is expired');
+            localStorage.removeItem('jwt_token');
             return false;
         }
-    }
+        
+        return true;
+	    } catch (error) {
+	        console.log('Token validation error:', error);
+	        localStorage.removeItem('jwt_token'); // Rimuovi il token non valido
+	        return false;
+	    }
+	}
 
     /**
      * Gets user role

@@ -6,15 +6,18 @@ import com.vending.Main;
 import com.vending.ServiceRegistry;
 import com.vending.core.models.Bevanda;
 import com.vending.core.models.Cialda;
+import com.vending.core.models.Macchina;
 import com.vending.core.models.QuantitaCialde;
 import com.vending.core.models.Transazione;
 import com.vending.core.repositories.CialdaRepository;
+import com.vending.core.repositories.MacchinaRepository;
 import com.vending.core.repositories.TransazioneRepository;
 
 import org.eclipse.paho.client.mqttv3.MqttException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.sql.SQLException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -23,45 +26,70 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.stream.Collectors;
 
 public class GestoreBevande {
 
-    private final int idMacchina;
+    private final int macchinaId;
     private final Map<Integer, Bevanda> bevande;
     private final AtomicBoolean inErogazione;
     private final MQTTClient mqttClient;
     private final Gson gson;
     private final GestoreCassa gestoreCassa;
     private final GestoreCialde gestoreCialde;
+    private final MacchinaRepository macchinaRepository;
+    private final TransazioneRepository transazioneRepository;
     private static final Logger logger = LoggerFactory.getLogger(Main.class);
-
-    public GestoreBevande(int idMacchina, GestoreCassa gestoreCassa, GestoreCialde gestoreCialde) throws MqttException {
-        this.idMacchina = idMacchina;
-        this.bevande = new ConcurrentHashMap<>();
+    
+    /**
+     * Costruttore del gestore bevande con inizializzazione dati dal database.
+     * 
+     * @param macchinaId ID della macchina gestita
+     */
+    public GestoreBevande(int macchinaId, GestoreCassa gestoreCassa, GestoreCialde gestoreCialde) throws MqttException {
+    	this.macchinaRepository = ServiceRegistry.get(MacchinaRepository.class);
+    	this.transazioneRepository = ServiceRegistry.get(TransazioneRepository.class);
+        this.macchinaId = macchinaId;
+        this.bevande = new HashMap<>();
         this.inErogazione = new AtomicBoolean(false);
         this.gson = new Gson();
-        this.mqttClient = new MQTTClient("bevande_" + idMacchina);
+        this.mqttClient = new MQTTClient("bevande_" + macchinaId);
         this.gestoreCassa = gestoreCassa;
         this.gestoreCialde = gestoreCialde;
-
+        
+        // Inizializza la lista delle bevande dal database
+        Macchina macchina = macchinaRepository.findById(macchinaId);
+        if (macchina != null && macchina.getBevande() != null) {
+            for (Bevanda bevanda : macchina.getBevande()) {
+                this.bevande.put(bevanda.getId(), bevanda);
+            }
+            logger.info("Bevande caricate per macchina {}: {} tipi", macchinaId, bevande.size());
+        } else {
+            logger.warn("Nessuna bevanda trovata per la macchina {}", macchinaId);
+        }
+    
         inizializzaSottoscrizioni();
     }
 
     private void inizializzaSottoscrizioni() throws MqttException {
-        String baseTopic = "macchine/" + idMacchina + "/bevande/";
-        mqttClient.subscribe(baseTopic + "#", (topic, messaggio) -> {
-            String azione = topic.substring(baseTopic.length());
-            switch (azione) {
-                case "richiesta":
-                    gestisciRichiestaBevanda(gson.fromJson(messaggio, RichiestaBevanda.class));
-                    break;
-                case "aggiorna":
-                    gestisciAggiornamentoBevanda(gson.fromJson(messaggio, AggiornamentoBevanda.class));
-                    break;
-            }
+        String baseTopic = "macchine/" + macchinaId + "/bevande/";
+        
+        // Sottoscrizione per richieste di bevande
+        mqttClient.subscribe(baseTopic + "richiesta", (topic, messaggio) -> {
+            gestisciRichiestaBevanda(gson.fromJson(messaggio, RichiestaBevanda.class));
+        });
+        
+        // Sottoscrizione per aggiornamento delle bevande
+        /*mqttClient.subscribe(baseTopic + "aggiorna", (topic, messaggio) -> {
+            gestisciAggiornamentoBevanda(gson.fromJson(messaggio, bevande));
+        });*/
+        
+        // Sottoscrizione per richieste stato delle bevande
+        mqttClient.subscribe(baseTopic + "stato/richiesta", (topic, messaggio) -> {
+            publishAggiornamentoBevande();
         });
     }
-
+    
     public void aggiungiBevanda(Bevanda bevanda) {
         bevande.put(bevanda.getId(), bevanda);
         publishAggiornamentoBevande();
@@ -69,7 +97,7 @@ public class GestoreBevande {
 
     private void publishAggiornamentoBevande() {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/lista";
+            String topic = "macchine/" + macchinaId + "/bevande/lista/risposta";
 
             // Crea una mappa dettagliata con tutte le informazioni delle bevande
             Map<String, Object> dettagliAggiornamento = new HashMap<>();
@@ -120,9 +148,6 @@ public class GestoreBevande {
             // Pubblica l'aggiornamento
             mqttClient.publish(topic, gson.toJson(dettagliAggiornamento));
 
-            // Log dell'aggiornamento
-            System.out.println("Aggiornamento bevande pubblicato con successo: "
-                    + gson.toJson(dettagliAggiornamento));
 
         } catch (MqttException e) {
             System.err.println("Errore durante la pubblicazione dell'aggiornamento bevande: "
@@ -134,6 +159,16 @@ public class GestoreBevande {
         }
     }
 
+    /**
+     * Trova una bevanda per ID.
+     * 
+     * @param bevandaId ID della bevanda
+     * @return Optional contenente la bevanda, o empty se non trovata
+     */
+    public Optional<Bevanda> trovaBevanda(int bevandaId) {
+        return Optional.ofNullable(bevande.get(bevandaId));
+    }
+    
     private boolean verificaDisponibilitaBevanda(Bevanda bevanda) {
         try {
             if (bevanda == null) {
@@ -152,7 +187,7 @@ public class GestoreBevande {
     private int getQuantitaCialdaDisponibile(int idCialda) {
         try {
             CialdaRepository cialdaRepository = new CialdaRepository();
-            Optional<QuantitaCialde> cialda = cialdaRepository.getQuantitaDisponibileByMacchina(idCialda, idMacchina);
+            Optional<QuantitaCialde> cialda = cialdaRepository.getQuantitaDisponibileByMacchina(idCialda, macchinaId);
             return cialda != null ? cialda.get().getQuantita() : 0;
         } catch (Exception e) {
             return 0;
@@ -161,7 +196,7 @@ public class GestoreBevande {
 
     private void pubblicaAvvisoNessunaBevandaDisponibile() {
         try {
-            String topicAvviso = "macchine/" + idMacchina + "/bevande/avviso";
+            String topicAvviso = "macchine/" + macchinaId + "/bevande/avviso/risposta";
             Map<String, Object> avviso = Map.of(
                     "tipo", "NESSUNA_BEVANDA_DISPONIBILE",
                     "messaggio", "Tutte le bevande sono momentaneamente non disponibili",
@@ -173,7 +208,8 @@ public class GestoreBevande {
                     + e.getMessage());
         }
     }
-
+    
+    
     private void gestisciRichiestaBevanda(RichiestaBevanda richiesta) {
         if (!inErogazione.compareAndSet(false, true)) {
             pubblicaErrore("Macchina occupata");
@@ -194,7 +230,7 @@ public class GestoreBevande {
             }
 
             // Verifica pagamento
-            if (gestoreCassa.processaPagamento(bevanda.getPrezzo())) {
+            if (gestoreCassa.processaPagamento(bevanda.getPrezzo(), bevanda.getId())) {
                 // Simulazione erogazione
                 pubblicaStato("preparazione");
                 Thread.sleep(5000); // Simula tempo di preparazione
@@ -203,14 +239,7 @@ public class GestoreBevande {
                 gestoreCialde.consumaCialde(bevanda.getCialde());
 
                 pubblicaStato("completata");
-                registraErogazione(bevanda);
-                // Aggiorna il repository delle transazioni
-                TransazioneRepository transazioneRepo = ServiceRegistry.get(TransazioneRepository.class);
-                Optional<Transazione> transazione = transazioneRepo.findById(richiesta.transazioneId);
-                if (transazione.isPresent()) {
-                    Transazione t = transazione.get();
-                    transazioneRepo.update(t);
-                }
+                
             } else {
                 pubblicaErrore("Credito insufficiente");
             }
@@ -221,17 +250,47 @@ public class GestoreBevande {
         }
     }
 
-    private void gestisciAggiornamentoBevanda(AggiornamentoBevanda aggiornamento) {
-        Bevanda bevanda = bevande.get(aggiornamento.idBevanda);
-        if (bevanda != null) {
-            bevanda.setPrezzo(aggiornamento.nuovoPrezzo);
-            pubblicaAggiornamentoBevande();
+    private boolean  gestisciAggiornamentoBevanda(List<Bevanda> nuoveBevande) {
+        try {
+            // Svuota la mappa esistente
+            bevande.clear();
+            
+            // Popola con le nuove bevande
+            for (Bevanda bevanda : nuoveBevande) {
+                bevande.put(bevanda.getId(), bevanda);
+            }
+            
+            // Aggiorna anche nel database
+            Macchina macchina = macchinaRepository.findById(macchinaId);
+            if (macchina != null) {
+                // Estrai gli ID delle bevande
+                List<Integer> bevandeIds = nuoveBevande.stream()
+                                             .map(Bevanda::getId)
+                                             .collect(Collectors.toList());
+                
+                // Usa il metodo corretto del repository per aggiornare le bevande nel database
+                macchinaRepository.aggiornaBevande(macchina, bevandeIds);
+                    
+                logger.info("Bevande aggiornate per macchina {}: {} tipi", macchinaId, bevande.size());
+                return true;
+            } else {
+                logger.error("Impossibile aggiornare bevande: macchina {} non trovata", macchinaId);
+                return false;
+            }
+        } catch (SQLException e) {
+            logger.error("Errore SQL nell'aggiornamento delle bevande per macchina {}: {}", 
+                        macchinaId, e.getMessage(), e);
+            return false;
+        } catch (Exception e) {
+            logger.error("Errore nell'aggiornamento delle bevande per macchina {}: {}", 
+                        macchinaId, e.getMessage(), e);
+            return false;
         }
     }
 
     private void pubblicaStato(String stato) {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/stato";
+            String topic = "macchine/" + macchinaId + "/bevande/stato/risposta";
             Map<String, Object> statoErogazione = Map.of(
                     "stato", stato,
                     "timestamp", System.currentTimeMillis()
@@ -244,7 +303,7 @@ public class GestoreBevande {
 
     private void pubblicaAggiornamentoBevande() {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/lista";
+            String topic = "macchine/" + macchinaId + "/bevande/lista/risposta";
             mqttClient.publish(topic, gson.toJson(bevande));
         } catch (MqttException e) {
             System.err.println("Errore pubblicazione bevande: " + e.getMessage());
@@ -253,7 +312,7 @@ public class GestoreBevande {
 
     private void pubblicaErrore(String messaggio) {
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/errore";
+            String topic = "macchine/" + macchinaId + "/bevande/errore/risposta";
             Map<String, Object> errore = Map.of(
                     "messaggio", messaggio,
                     "timestamp", System.currentTimeMillis()
@@ -269,10 +328,10 @@ public class GestoreBevande {
         Transazione transazione = new Transazione();
 
         try {
-            String topic = "macchine/" + idMacchina + "/bevande/erogazione";
+            String topic = "macchine/" + macchinaId + "/bevande/erogazione/completata";
             int idT = transazioneRepo.getLastTransactionId() + 1;
             transazione.setId(idT);
-            transazione.setMacchinaId(idMacchina);
+            transazione.setMacchinaId(macchinaId);
             transazione.setBevandaId(bevanda.getId());
             transazione.setImporto(bevanda.getPrezzo());
             transazione.setDataOra(LocalDateTime.now());
@@ -303,35 +362,119 @@ public class GestoreBevande {
         return bevandeDisponibili;
     }
 
+    /**
+     * Restituisce lo stato attuale delle bevande.
+     * 
+     * @return Mappa con lo stato delle bevande
+     */
     public Map<String, Object> ottieniStato() {
-        List<Map<String, Object>> listaBevande = new ArrayList<>();
-
-        for (Bevanda bevanda : bevande.values()) {
-            Map<String, Object> infoBevanda = new HashMap<>();
-            infoBevanda.put("id", bevanda.getId());
-            infoBevanda.put("nome", bevanda.getNome());
-            infoBevanda.put("prezzo", bevanda.getPrezzo());
-            infoBevanda.put("disponibile", verificaDisponibilitaBevanda(bevanda));
-            listaBevande.add(infoBevanda);
-        }
-
+    	Macchina macchina = macchinaRepository.findById(macchinaId);
         Map<String, Object> stato = new HashMap<>();
-        stato.put("bevande", listaBevande);
-        stato.put("inErogazione", inErogazione.get());
-
+        List<Map<String, Object>> bevandeStato = new ArrayList<>();
+        int bevandeDisponibili = 0;
+        
+        for (Bevanda bevanda : bevande.values()) {
+            Map<String, Object> bevandaStato = new HashMap<>();
+            bevandaStato.put("id", bevanda.getId());
+            bevandaStato.put("nome", bevanda.getNome());
+            bevandaStato.put("prezzo", bevanda.getPrezzo());
+            
+            // Controlla la disponibilità di tutte le cialde necessarie
+            boolean disponibile = true;
+            List<Map<String, Object>> cialdeInfo = new ArrayList<>();
+            
+            for (Cialda cialda : bevanda.getCialde()) {
+                Map<String, Object> info = new HashMap<>();
+                info.put("id", cialda.getId());
+                info.put("nome", cialda.getNome());
+                info.put("tipo", cialda.getTipoCialda());
+                
+                // Ottieni la quantità disponibile per questa cialda
+                int quantitaDisponibile = 0;
+                for (QuantitaCialde qc : macchina.getCialde()) {
+                    if (qc.getCialdaId() == cialda.getId()) {
+                        quantitaDisponibile = qc.getQuantita();
+                        info.put("quantitaDisponibile", quantitaDisponibile);
+                        break;
+                    }
+                }
+                
+                // Se anche solo una cialda non è disponibile, la bevanda non è disponibile
+                if (quantitaDisponibile <= 0) {
+                    disponibile = false;
+                }
+                
+                cialdeInfo.add(info);
+            }
+            
+            bevandaStato.put("cialde", cialdeInfo);
+            bevandaStato.put("disponibile", disponibile);
+            
+            if (disponibile) {
+                bevandeDisponibili++;
+            }
+            
+            bevandeStato.add(bevandaStato);
+        }
+        
+        stato.put("bevande", bevandeStato);
+        stato.put("numeroBevande", bevande.size());
+        stato.put("totaleDisponibili", bevandeDisponibili);
+        stato.put("timestamp", System.currentTimeMillis());
+        
         return stato;
+    }
+    /**
+     * Ottiene le statistiche di vendita per le bevande.
+     * 
+     * @return Mappa con le statistiche di vendita
+     */
+    public Map<String, Object> ottieniStatistiche() {
+        Map<String, Object> statistiche = new HashMap<>();
+        List<Map<String, Object>> venditeBevande = new ArrayList<>();
+        
+        try {
+            // Ottieni tutte le transazioni per questa macchina
+            List<Transazione> transazioni = transazioneRepository.findByMacchinaId(macchinaId);
+            
+            // Calcola il numero di vendite per ogni bevanda
+            Map<Integer, Long> conteggioVendite = transazioni.stream()
+                .collect(Collectors.groupingBy(Transazione::getBevandaId, Collectors.counting()));
+                
+            // Calcola il ricavo totale per ogni bevanda
+            Map<Integer, Double> ricavoPerBevanda = transazioni.stream()
+                .collect(Collectors.groupingBy(Transazione::getBevandaId, 
+                         Collectors.summingDouble(t -> t.getImporto() != null ? t.getImporto() : 0.0)));
+                
+            // Prepara le statistiche per ogni bevanda
+            for (Bevanda bevanda : bevande.values()) {
+                int bevandaId = bevanda.getId();
+                Map<String, Object> statBevanda = new HashMap<>();
+                statBevanda.put("id", bevandaId);
+                statBevanda.put("nome", bevanda.getNome());
+                statBevanda.put("quantitaVendute", conteggioVendite.getOrDefault(bevandaId, 0L));
+                statBevanda.put("ricavoTotale", ricavoPerBevanda.getOrDefault(bevandaId, 0.0));
+                
+                venditeBevande.add(statBevanda);
+            }
+            
+            statistiche.put("venditeBevande", venditeBevande);
+            statistiche.put("totaleTransazioni", transazioni.size());
+            statistiche.put("timestamp", System.currentTimeMillis());
+            
+        } catch (Exception e) {
+            logger.error("Errore nel recupero delle statistiche per macchina {}: {}", 
+                        macchinaId, e.getMessage(), e);
+            statistiche.put("errore", "Impossibile recuperare statistiche: " + e.getMessage());
+        }
+        
+        return statistiche;
     }
 
     private static class RichiestaBevanda {
         public int idBevanda;
         public int transazioneId;
         public double importo;
-    }
-
-    private static class AggiornamentoBevanda {
-
-        public int idBevanda;
-        public double nuovoPrezzo;
     }
 
     public void spegni() {

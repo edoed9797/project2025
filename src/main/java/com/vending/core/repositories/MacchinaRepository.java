@@ -231,15 +231,31 @@ public class MacchinaRepository {
      * @throws SQLException se si verifica un errore durante il salvataggio
      */
     private void salvaBevande(Connection conn, Macchina macchina, List<Integer> bevandeIds) throws SQLException {
-        String sql = "INSERT INTO macchinahabevanda (ID_Macchina, ID_Bevanda) VALUES (?, ?)";
+        // Ottieni il prossimo ID disponibile
+        int nextId = getNextMacchinaHaBevandaId(conn);
+        
+        String sql = "INSERT INTO macchinahabevanda (ID_MacchinaHaBevanda, ID_Macchina, ID_Bevanda) VALUES (?, ?, ?)";
         
         try (PreparedStatement stmt = conn.prepareStatement(sql)) {
             for (Integer bevandaId : bevandeIds) {
-                stmt.setInt(1, macchina.getId());
-                stmt.setInt(2, bevandaId);
+                stmt.setInt(1, nextId++);
+                stmt.setInt(2, macchina.getId());
+                stmt.setInt(3, bevandaId);
                 stmt.addBatch();
             }
             stmt.executeBatch();
+        }
+    }
+
+    // Metodo per ottenere il prossimo ID disponibile
+    private int getNextMacchinaHaBevandaId(Connection conn) throws SQLException {
+        String sql = "SELECT COALESCE(MAX(ID_MacchinaHaBevanda), 0) + 1 FROM macchinahabevanda";
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(sql)) {
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+            return 1;
         }
     }
     /**
@@ -357,7 +373,25 @@ public class MacchinaRepository {
             }
         }
     }
-
+    
+    /**
+     * Salva le cialde associate alla macchina.
+     */
+    private void salvaCialde(Connection conn, Macchina macchina) throws SQLException {
+        String sql = "INSERT INTO quantitacialde (ID_Macchina, ID_Cialda, Quantita, QuantitaMassima) " +
+                    "VALUES (?, ?, ?, ?)";
+        
+        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
+            for (QuantitaCialde qc : macchina.getCialde()) {
+                stmt.setInt(1, macchina.getId());
+                stmt.setInt(2, qc.getCialdaId());
+                stmt.setInt(3, qc.getQuantita());
+                stmt.setInt(4, qc.getQuantitaMassima());
+                stmt.addBatch();
+            }
+            stmt.executeBatch();
+        }
+    }
     /**
      * Carica le bevande associate alla macchina.
      */
@@ -435,25 +469,6 @@ public class MacchinaRepository {
         caricaCialde(macchina);
         caricaBevande(macchina);
         caricaComposizioneBevande(macchina);
-    }
-
-    /**
-     * Salva le cialde associate alla macchina.
-     */
-    private void salvaCialde(Connection conn, Macchina macchina) throws SQLException {
-        String sql = "INSERT INTO quantitacialde (ID_Macchina, ID_Cialda, Quantita, QuantitaMassima) " +
-                    "VALUES (?, ?, ?, ?)";
-        
-        try (PreparedStatement stmt = conn.prepareStatement(sql)) {
-            for (QuantitaCialde qc : macchina.getCialde()) {
-                stmt.setInt(1, macchina.getId());
-                stmt.setInt(2, qc.getCialdaId());
-                stmt.setInt(3, qc.getQuantita());
-                stmt.setInt(4, qc.getQuantitaMassima());
-                stmt.addBatch();
-            }
-            stmt.executeBatch();
-        }
     }
 
     /**

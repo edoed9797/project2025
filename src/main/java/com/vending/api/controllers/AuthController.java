@@ -210,7 +210,8 @@ public class AuthController {
             return gson.toJson(Map.of("errore", "Errore interno del server"));
         }
     }
-
+    
+    
     /**
      * Verifica la validità di un token JWT.
      * 
@@ -268,7 +269,7 @@ public class AuthController {
             String token = JWTService.generateAnonymousToken(claims);
 
             Map<String, Object> response = new HashMap<>();
-            response.put("token", token);
+            response.put("jwt_token", token);
             response.put("role", "anonymous");
 
             res.type("application/json");
